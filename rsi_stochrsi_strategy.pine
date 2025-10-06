@@ -1,0 +1,106 @@
+//@version=5
+strategy("RSI + StochRSI Multi-Timeframe Strategy", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=10)
+
+// Стратегия использует RSI на 4-часовом таймфрейме для определения тренда
+// и StochRSI на 15-минутном таймфрейме для сигналов входа/выхода.
+// Дополнительно учитывает дивергенции RSI для повышения качества сигналов.
+//
+// Логика лонга:
+// - RSI 4h > 50 (восходящий тренд)
+// - StochRSI 15m пересекает 25 снизу вверх (вход)
+// - StochRSI 15m пересекает 80 сверху вниз (выход)
+//
+// Логика шорта:
+// - RSI 4h < 50 (нисходящий тренд)
+// - StochRSI 15m пересекает 75 сверху вниз (вход)
+// - StochRSI 15m пересекает 20 снизу вверх (выход)
+
+// Входные параметры
+lengthRSI = input(8, "RSI Length", minval=1)
+lengthStoch = input(5, "StochRSI Length", minval=1)
+smoothK = input(3, "StochRSI K Smooth", minval=1)
+smoothD = input(3, "StochRSI D Smooth", minval=1)
+
+// Уровни для StochRSI
+overSold = 25
+overBought = 75
+
+// RSI на 4-часовом таймфрейме для определения тренда
+rsi4h = request.security(syminfo.tickerid, "240", ta.rsi(close, lengthRSI))
+
+// StochRSI на 15-минутном таймфрейме для сигналов входа/выхода
+rsi15m = request.security(syminfo.tickerid, "15", ta.rsi(close, lengthRSI))
+stochrsiK = ta.sma(ta.stoch(rsi15m, rsi15m, rsi15m, lengthStoch), smoothK)
+stochrsiD = ta.sma(stochrsiK, smoothD)
+
+// Логика сигналов для лонга
+longCondition = rsi4h > 50 and ta.crossover(stochrsiK, overSold)
+longExitCondition = ta.crossunder(stochrsiK, overBought)
+
+// Логика сигналов для шорта
+shortCondition = rsi4h < 50 and ta.crossunder(stochrsiK, overBought)
+shortExitCondition = ta.crossover(stochrsiK, overSold)
+
+// Визуализация
+plot(rsi4h, "RSI 4h", color=color.blue, linewidth=2)
+hline(50, "RSI 50 Level", color=color.gray)
+
+plot(stochrsiK, "StochRSI K", color=color.black)
+plot(stochrsiD, "StochRSI D", color=color.purple)
+hline(overSold, "Oversold", color=color.red)
+hline(overBought, "Overbought", color=color.green)
+
+// Функция обнаружения дивергенций RSI
+detectDivergence() =>
+    // Получаем RSI на текущем таймфрейме для анализа дивергенций
+    rsi_current = ta.rsi(close, lengthRSI)
+
+    // Ищем развороты для выявления дивергенций
+    lookback = 14
+
+    // Находим локальные минимумы и максимумы
+    price_low_1 = ta.lowest(low, lookback)
+    price_low_2 = ta.lowest(low[lookback/2], lookback/2)
+
+    rsi_low_1 = ta.lowest(rsi_current, lookback)
+    rsi_low_2 = ta.lowest(rsi_current[lookback/2], lookback/2)
+
+    price_high_1 = ta.highest(high, lookback)
+    price_high_2 = ta.highest(high[lookback/2], lookback/2)
+
+    rsi_high_1 = ta.highest(rsi_current, lookback)
+    rsi_high_2 = ta.highest(rsi_current[lookback/2], lookback/2)
+
+    // Бычья дивергенция: цена падает, RSI растет
+    bull_divergence = (price_low_1 < price_low_2) and (rsi_low_1 > rsi_low_2) and (rsi_current > 50)
+
+    // Медвежья дивергенция: цена растет, RSI падает
+    bear_divergence = (price_high_1 > price_high_2) and (rsi_high_1 < rsi_high_2) and (rsi_current < 50)
+
+    [bull_divergence, bear_divergence]
+
+// Обнаружение дивергенций
+[bullDiv, bearDiv] = detectDivergence()
+
+// Усиление сигналов дивергенциями
+enhancedLongSignal = longCondition and (bullDiv or rsi4h > 60)
+enhancedShortSignal = shortCondition and (bearDiv or rsi4h < 40)
+
+// Выполнение стратегии с учетом дивергенций
+if (enhancedLongSignal)
+    strategy.entry("Long", strategy.long)
+if (longExitCondition)
+    strategy.close("Long")
+
+if (enhancedShortSignal)
+    strategy.entry("Short", strategy.short)
+if (shortExitCondition)
+    strategy.close("Short")
+
+// Визуализация дивергенций
+plotshape(bullDiv, style=shape.triangleup, location=location.belowbar, color=color.green, text="Bull Div", textcolor=color.white, size=size.small)
+plotshape(bearDiv, style=shape.triangledown, location=location.abovebar, color=color.red, text="Bear Div", textcolor=color.white, size=size.small)
+
+// Метки сигналов
+plotshape(enhancedLongSignal, style=shape.labelup, location=location.belowbar, color=color.green, text="LONG+", textcolor=color.white)
+plotshape(enhancedShortSignal, style=shape.labeldown, location=location.abovebar, color=color.red, text="SHORT+", textcolor=color.white)
