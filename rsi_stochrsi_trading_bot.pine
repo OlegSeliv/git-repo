@@ -1,0 +1,165 @@
+//@version=5
+strategy("RSI + StochRSI Trading Bot", shorttitle="RSI_StochRSI_Bot", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=10)
+
+// ========== НАСТРОЙКИ ==========
+// StochRSI параметры
+lengthRSI = input.int(8, minval=1, title="RSI Length", group="StochRSI Settings")
+lengthStoch = input.int(5, minval=1, title="Stochastic Length", group="StochRSI Settings")
+smoothK = input.int(3, minval=1, title="Smooth K", group="StochRSI Settings")
+smoothD = input.int(3, minval=1, title="Smooth D", group="StochRSI Settings")
+
+// Уровни для StochRSI
+stochRSI_long_entry = input.int(25, title="StochRSI Long Entry Level", group="Entry/Exit Levels")
+stochRSI_long_exit = input.int(80, title="StochRSI Long Exit Level", group="Entry/Exit Levels")
+stochRSI_short_entry = input.int(75, title="StochRSI Short Entry Level", group="Entry/Exit Levels")
+stochRSI_short_exit = input.int(20, title="StochRSI Short Exit Level", group="Entry/Exit Levels")
+
+// RSI параметры для фильтра
+rsi_filter_length = input.int(14, title="RSI Filter Length", group="RSI Filter")
+rsi_filter_level = input.int(50, title="RSI Filter Level", group="RSI Filter")
+
+// Дивергенция параметры
+enable_divergence = input.bool(true, title="Enable Divergence Filter", group="Divergence Settings")
+divergence_lookback = input.int(10, minval=5, maxval=50, title="Divergence Lookback Period", group="Divergence Settings")
+
+// Настройки отображения
+show_signals = input.bool(true, title="Show Entry/Exit Signals", group="Display")
+show_levels = input.bool(true, title="Show StochRSI Levels", group="Display")
+
+// ========== ФУНКЦИЯ StochRSI ==========
+stochRSI(source, lengthRSI, lengthStoch, smoothK, smoothD) =>
+    rsi1 = ta.rsi(source, lengthRSI)
+    k = ta.sma(ta.stoch(rsi1, rsi1, rsi1, lengthStoch), smoothK)
+    d = ta.sma(k, smoothD)
+    [k, d]
+
+// ========== ПОЛУЧЕНИЕ ДАННЫХ С РАЗНЫХ ТАЙМФРЕЙМОВ ==========
+// RSI на 4-часовом таймфрейме
+rsi_4h = request.security(syminfo.tickerid, "240", ta.rsi(close, rsi_filter_length))
+
+// StochRSI на 15-минутном таймфрейме
+[stochRSI_k_15m, stochRSI_d_15m] = request.security(syminfo.tickerid, "15", stochRSI(close, lengthRSI, lengthStoch, smoothK, smoothD))
+
+// RSI для дивергенции (текущий таймфрейм)
+rsi_current = ta.rsi(close, rsi_filter_length)
+
+// ========== ОПРЕДЕЛЕНИЕ ДИВЕРГЕНЦИИ ==========
+// Функция для поиска локальных максимумов и минимумов
+isHigher(source, length) =>
+    source > ta.highest(source[1], length)
+
+isLower(source, length) =>
+    source < ta.lowest(source[1], length)
+
+// Бычья дивергенция: цена делает более низкий минимум, а RSI - более высокий минимум
+bullish_divergence = false
+bearish_divergence = false
+
+if enable_divergence
+    // Поиск локальных минимумов для бычьей дивергенции
+    price_low = ta.lowest(low, divergence_lookback)
+    rsi_low = ta.lowest(rsi_current, divergence_lookback)
+    
+    // Поиск локальных максимумов для медвежьей дивергенции
+    price_high = ta.highest(high, divergence_lookback)
+    rsi_high = ta.highest(rsi_current, divergence_lookback)
+    
+    // Бычья дивергенция
+    bullish_divergence := low == price_low and rsi_current > rsi_low[ta.barssince(low == price_low)]
+    
+    // Медвежья дивергенция
+    bearish_divergence := high == price_high and rsi_current < rsi_high[ta.barssince(high == price_high)]
+
+// ========== УСЛОВИЯ ДЛЯ ВХОДА И ВЫХОДА ==========
+// Условия для лонга
+rsi_4h_bullish = rsi_4h > rsi_filter_level
+stochRSI_long_cross_up = ta.crossover(stochRSI_k_15m, stochRSI_long_entry)
+stochRSI_long_cross_down = ta.crossunder(stochRSI_k_15m, stochRSI_long_exit)
+
+// Условия для шорта
+rsi_4h_bearish = rsi_4h < rsi_filter_level
+stochRSI_short_cross_down = ta.crossunder(stochRSI_k_15m, stochRSI_short_entry)
+stochRSI_short_cross_up = ta.crossover(stochRSI_k_15m, stochRSI_short_exit)
+
+// Сигналы входа с учетом дивергенции
+long_entry_signal = rsi_4h_bullish and stochRSI_long_cross_up and (not enable_divergence or bullish_divergence)
+short_entry_signal = rsi_4h_bearish and stochRSI_short_cross_down and (not enable_divergence or bearish_divergence)
+
+// Сигналы выхода
+long_exit_signal = stochRSI_long_cross_down
+short_exit_signal = stochRSI_short_cross_up
+
+// ========== ВЫПОЛНЕНИЕ СДЕЛОК ==========
+// Вход в лонг
+if long_entry_signal and strategy.position_size == 0
+    strategy.entry("Long", strategy.long, comment="Long Entry")
+
+// Выход из лонга
+if long_exit_signal and strategy.position_size > 0
+    strategy.close("Long", comment="Long Exit")
+
+// Вход в шорт
+if short_entry_signal and strategy.position_size == 0
+    strategy.entry("Short", strategy.short, comment="Short Entry")
+
+// Выход из шорта
+if short_exit_signal and strategy.position_size < 0
+    strategy.close("Short", comment="Short Exit")
+
+// ========== ВИЗУАЛИЗАЦИЯ ==========
+// Отображение сигналов на графике
+if show_signals
+    plotshape(long_entry_signal, title="Long Entry", location=location.belowbar, style=shape.triangleup, size=size.small, color=color.green, text="LONG")
+    plotshape(short_entry_signal, title="Short Entry", location=location.abovebar, style=shape.triangledown, size=size.small, color=color.red, text="SHORT")
+    plotshape(long_exit_signal and strategy.position_size > 0, title="Long Exit", location=location.abovebar, style=shape.xcross, size=size.small, color=color.orange, text="EXIT")
+    plotshape(short_exit_signal and strategy.position_size < 0, title="Short Exit", location=location.belowbar, style=shape.xcross, size=size.small, color=color.orange, text="EXIT")
+
+// Отображение дивергенций
+plotshape(bullish_divergence and enable_divergence, title="Bullish Divergence", location=location.belowbar, style=shape.diamond, size=size.tiny, color=color.lime, text="BD")
+plotshape(bearish_divergence and enable_divergence, title="Bearish Divergence", location=location.abovebar, style=shape.diamond, size=size.tiny, color=color.fuchsia, text="BD")
+
+// ========== ИНФОРМАЦИОННАЯ ПАНЕЛЬ ==========
+// Создание таблицы с информацией
+var table info_table = table.new(position.top_right, 3, 6, bgcolor=color.white, border_width=1)
+
+if barstate.islast
+    table.cell(info_table, 0, 0, "Indicator", text_color=color.black, bgcolor=color.gray)
+    table.cell(info_table, 1, 0, "Value", text_color=color.black, bgcolor=color.gray)
+    table.cell(info_table, 2, 0, "Status", text_color=color.black, bgcolor=color.gray)
+    
+    table.cell(info_table, 0, 1, "RSI 4H", text_color=color.black)
+    table.cell(info_table, 1, 1, str.tostring(math.round(rsi_4h, 2)), text_color=color.black)
+    table.cell(info_table, 2, 1, rsi_4h > rsi_filter_level ? "Bullish" : "Bearish", 
+               text_color=rsi_4h > rsi_filter_level ? color.green : color.red)
+    
+    table.cell(info_table, 0, 2, "StochRSI K 15m", text_color=color.black)
+    table.cell(info_table, 1, 2, str.tostring(math.round(stochRSI_k_15m, 2)), text_color=color.black)
+    table.cell(info_table, 2, 2, stochRSI_k_15m > 50 ? "High" : "Low", 
+               text_color=stochRSI_k_15m > 50 ? color.red : color.green)
+    
+    table.cell(info_table, 0, 3, "Position", text_color=color.black)
+    table.cell(info_table, 1, 3, strategy.position_size > 0 ? "Long" : strategy.position_size < 0 ? "Short" : "None", text_color=color.black)
+    table.cell(info_table, 2, 3, strategy.position_size != 0 ? "Active" : "Waiting", 
+               text_color=strategy.position_size != 0 ? color.blue : color.gray)
+    
+    if enable_divergence
+        table.cell(info_table, 0, 4, "Divergence", text_color=color.black)
+        table.cell(info_table, 1, 4, bullish_divergence ? "Bullish" : bearish_divergence ? "Bearish" : "None", text_color=color.black)
+        table.cell(info_table, 2, 4, bullish_divergence or bearish_divergence ? "Detected" : "None", 
+                   text_color=bullish_divergence ? color.green : bearish_divergence ? color.red : color.gray)
+
+// ========== ДОПОЛНИТЕЛЬНЫЕ ИНДИКАТОРЫ НА ГРАФИКЕ ==========
+// Отображение уровней StochRSI (опционально в отдельном окне)
+if show_levels
+    // Можно добавить отдельное окно с StochRSI, но для стратегии это не обязательно
+    // hline(stochRSI_long_entry, "Long Entry Level", color=color.green, linestyle=hline.style_dashed)
+    // hline(stochRSI_long_exit, "Long Exit Level", color=color.red, linestyle=hline.style_dashed)
+    
+// Цветовая заливка фона в зависимости от направления тренда по RSI 4H
+bgcolor(rsi_4h > rsi_filter_level ? color.new(color.green, 95) : color.new(color.red, 95), title="RSI 4H Trend")
+
+// ========== АЛЕРТЫ ==========
+alertcondition(long_entry_signal, title="Long Entry Alert", message="RSI StochRSI Bot: Long Entry Signal")
+alertcondition(short_entry_signal, title="Short Entry Alert", message="RSI StochRSI Bot: Short Entry Signal")
+alertcondition(long_exit_signal, title="Long Exit Alert", message="RSI StochRSI Bot: Long Exit Signal")
+alertcondition(short_exit_signal, title="Short Exit Alert", message="RSI StochRSI Bot: Short Exit Signal")
