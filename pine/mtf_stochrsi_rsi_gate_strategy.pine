@@ -1,0 +1,154 @@
+//@version=5
+strategy("MTF StochRSI with H4 RSI gate + Divergence", shorttitle="MTF StochRSI RSIgate", overlay=false, pyramiding=0, initial_capital=10000, calc_on_every_tick=true, commission_type=strategy.commission.percent, commission_value=0.04)
+
+// ==========================
+// Inputs
+// ==========================
+sym              = input.symbol(syminfo.tickerid, "Symbol")
+// Timeframes
+htf_rsi_tf       = input.timeframe("240", "HTF RSI timeframe (gate)")
+stoch_tf         = input.timeframe("15",  "StochRSI timeframe (entry/exit)")
+
+// RSI/ StochRSI params
+rsi_len_htf      = input.int(14,  "HTF RSI length", minval=2)
+rsi_src          = input.source(close, "RSI source")
+
+rsi_len_stoch    = input.int(8,   "StochRSI RSI length", minval=2)
+stoch_len        = input.int(5,   "Stoch length", minval=1)
+smooth_k         = input.int(3,   "Smooth K", minval=1)
+smooth_d         = input.int(3,   "Smooth D", minval=1)
+
+// Thresholds
+stoch_os_long    = input.float(25.0, "StochRSI oversold for longs", minval=0, maxval=100)
+stoch_ob_short   = input.float(75.0, "StochRSI overbought for shorts", minval=0, maxval=100)
+exit_long_lvl    = input.float(80.0, "Exit long when K crosses below", minval=0, maxval=100)
+exit_short_lvl   = input.float(20.0, "Exit short when K crosses above", minval=0, maxval=100)
+
+// Risk Management (optional)
+use_stop         = input.bool(false, "Use protective stop (%)")
+stop_percent     = input.float(2.0, "Stop %", minval=0.1, step=0.1)
+use_take         = input.bool(false, "Use take-profit (%)")
+take_percent     = input.float(4.0, "Take %", minval=0.1, step=0.1)
+
+// Divergence options
+use_div_filter   = input.bool(false, "Require RSI divergence with entry")
+use_div_boost    = input.bool(true,  "Boost confidence when divergence present (plot/labels)")
+lookback_piv     = input.int(5, "Pivot lookback for divergence", minval=2, maxval=20)
+
+// ==========================
+// Helper: StochRSI computation on selected timeframe
+// ==========================
+calcStochRsi(tf) =>
+    rsi_base   = request.security(sym, tf, ta.rsi(rsi_src, rsi_len_stoch), barmerge.gaps_off, barmerge.lookahead_off)
+    k_raw      = request.security(sym, tf, ta.stoch(rsi_base, rsi_base, rsi_base, stoch_len), barmerge.gaps_off, barmerge.lookahead_off)
+    k_smooth   = ta.sma(k_raw, smooth_k)
+    d_smooth   = ta.sma(k_smooth, smooth_d)
+    [k_smooth, d_smooth]
+
+[k_mtf, d_mtf] = calcStochRsi(stoch_tf)
+
+// ==========================
+// HTF RSI gate
+// ==========================
+rsi_htf = request.security(sym, htf_rsi_tf, ta.rsi(rsi_src, rsi_len_htf), barmerge.gaps_off, barmerge.lookahead_off)
+long_gate  = rsi_htf > 50
+short_gate = rsi_htf < 50
+
+// ==========================
+// Cross conditions per spec
+// ==========================
+long_entry_cond = long_gate  and ta.crossover(k_mtf, stoch_os_long)
+short_entry_cond= short_gate and ta.crossunder(k_mtf, stoch_ob_short)
+
+long_exit_cond  = ta.crossunder(k_mtf, exit_long_lvl)
+short_exit_cond = ta.crossover(k_mtf, exit_short_lvl)
+
+// ==========================
+// RSI divergence (bull/bear) on chart timeframe by default
+// ==========================
+rsi_ctf = ta.rsi(rsi_src, rsi_len_stoch)
+// Pivot points on RSI
+pivLow  = ta.pivotlow(rsi_ctf, lookback_piv, lookback_piv)
+pivHigh = ta.pivothigh(rsi_ctf, lookback_piv, lookback_piv)
+
+// Track last two RSI pivots and corresponding price levels
+var float lastLowRsi   = na
+var float prevLowRsi   = na
+var float lastLowPrice = na
+var float prevLowPrice = na
+
+var float lastHighRsi   = na
+var float prevHighRsi   = na
+var float lastHighPrice = na
+var float prevHighPrice = na
+
+if not na(pivLow)
+    prevLowRsi   := lastLowRsi
+    prevLowPrice := lastLowPrice
+    lastLowRsi   := pivLow
+    lastLowPrice := low[lookback_piv]
+
+if not na(pivHigh)
+    prevHighRsi   := lastHighRsi
+    prevHighPrice := lastHighPrice
+    lastHighRsi   := pivHigh
+    lastHighPrice := high[lookback_piv]
+
+bull_div = not na(prevLowRsi)  and not na(lastLowRsi)  and not na(prevLowPrice)  and not na(lastLowPrice)  and (lastLowRsi  > prevLowRsi)  and (lastLowPrice  < prevLowPrice)
+bear_div = not na(prevHighRsi) and not na(lastHighRsi) and not na(prevHighPrice) and not na(lastHighPrice) and (lastHighRsi < prevHighRsi) and (lastHighPrice > prevHighPrice)
+
+// Optional divergence gate
+long_entry_final  = long_entry_cond  and (not use_div_filter or bull_div)
+short_entry_final = short_entry_cond and (not use_div_filter or bear_div)
+
+// ==========================
+// Strategy entries/exits
+// ==========================
+if long_entry_final
+    strategy.entry("Long", strategy.long)
+if short_entry_final
+    strategy.entry("Short", strategy.short)
+
+if strategy.position_size > 0 and long_exit_cond
+    strategy.close("Long")
+if strategy.position_size < 0 and short_exit_cond
+    strategy.close("Short")
+
+// Protective stops / takes (optional)
+if strategy.position_size != 0
+    avg = strategy.position_avg_price
+    stopPrice = use_stop ? (strategy.position_size > 0 ? avg * (1 - stop_percent/100) : avg * (1 + stop_percent/100)) : na
+    takePrice = use_take ? (strategy.position_size > 0 ? avg * (1 + take_percent/100) : avg * (1 - take_percent/100)) : na
+    if not na(stopPrice) or not na(takePrice)
+        strategy.exit("Risk", stop=stopPrice, limit=takePrice)
+
+// ==========================
+// Plots and visuals
+// ==========================
+plot(k_mtf, color=color.black, title="StochRSI K (MTF)")
+plot(d_mtf, color=color.fuchsia, title="StochRSI D (MTF)")
+hline(stoch_os_long,  'OS long',  color=color.new(color.blue, 0))
+hline(stoch_ob_short, 'OB short', color=color.new(color.blue, 0))
+hline(exit_long_lvl,  'Exit long', color=color.new(color.teal, 40))
+hline(exit_short_lvl, 'Exit short', color=color.new(color.orange, 40))
+
+plot(rsi_htf, color=color.new(color.green, 30), title="HTF RSI (gate)")
+hline(50, 'RSI 50 gate', color=color.new(color.gray, 60))
+
+// Divergence signals
+plotshape(use_div_boost and bull_div, title="Bull RSI div", style=shape.triangleup, color=color.new(color.lime, 0), size=size.tiny, location=location.bottom)
+plotshape(use_div_boost and bear_div, title="Bear RSI div", style=shape.triangledown, color=color.new(color.red, 0), size=size.tiny, location=location.top)
+
+// Entry/Exit marks
+plotshape(long_entry_final,  title="Long Entry",  style=shape.circle, color=color.new(color.lime, 0), location=location.bottom)
+plotshape(short_entry_final, title="Short Entry", style=shape.circle, color=color.new(color.red, 0),  location=location.top)
+plotshape(long_exit_cond and strategy.position_size>0,  title="Long Exit",  style=shape.xcross, color=color.new(color.teal, 0))
+plotshape(short_exit_cond and strategy.position_size<0, title="Short Exit", style=shape.xcross, color=color.new(color.orange, 0))
+
+// ==========================
+// Alerts
+// ==========================
+alertcondition(long_entry_final,  title="Long Entry",  message="Long entry: H4 RSI>50 and StochRSI K crossed above OS")
+alertcondition(short_entry_final, title="Short Entry", message="Short entry: H4 RSI<50 and StochRSI K crossed below OB")
+alertcondition(long_exit_cond,    title="Exit Long",   message="Exit long: StochRSI K crossed below exit level")
+alertcondition(short_exit_cond,   title="Exit Short",  message="Exit short: StochRSI K crossed above exit level")
