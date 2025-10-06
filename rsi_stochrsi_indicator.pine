@@ -1,0 +1,197 @@
+//@version=5
+indicator("RSI + StochRSI Indicator", shorttitle="RSI+StochRSI", format=format.price, precision=2)
+
+// ===============================
+// Входные параметры
+// ===============================
+// Выбор таймфрейма для отображения
+show_rsi = input.bool(true, title="Show RSI", group="Display Settings")
+show_stochrsi = input.bool(true, title="Show StochRSI", group="Display Settings")
+
+// RSI параметры
+rsi_source = input.source(close, title="RSI Source", group="RSI Settings")
+rsi_length_4h = input.int(14, title="RSI Length (4H)", minval=1, group="RSI Settings")
+rsi_length_current = input.int(14, title="RSI Length (Current TF)", minval=1, group="RSI Settings")
+
+// StochRSI параметры
+lengthRSI = input.int(8, title="StochRSI - RSI Length", minval=8, group="StochRSI Settings")
+lengthStoch = input.int(5, title="StochRSI - Stoch Length", minval=5, group="StochRSI Settings")
+smoothK = input.int(3, title="StochRSI - Smooth K", minval=3, group="StochRSI Settings")
+smoothD = input.int(3, title="StochRSI - Smooth D", minval=3, group="StochRSI Settings")
+
+// Уровни
+rsi_level = input.float(50, title="RSI Trend Level", group="Levels")
+oversold_long = input.float(25, title="StochRSI Oversold (Long Entry)", group="Levels")
+overbought_long = input.float(80, title="StochRSI Overbought (Long Exit)", group="Levels")
+overbought_short = input.float(75, title="StochRSI Overbought (Short Entry)", group="Levels")
+oversold_short = input.float(20, title="StochRSI Oversold (Short Exit)", group="Levels")
+
+// Цветовая схема
+rsi_bull_color = input.color(color.green, title="RSI Bull Color", group="Colors")
+rsi_bear_color = input.color(color.red, title="RSI Bear Color", group="Colors")
+stoch_k_color = input.color(color.blue, title="StochRSI K Color", group="Colors")
+stoch_d_color = input.color(color.orange, title="StochRSI D Color", group="Colors")
+
+// ===============================
+// Расчеты RSI
+// ===============================
+// RSI на текущем таймфрейме
+rsi_current = ta.rsi(rsi_source, rsi_length_current)
+
+// RSI на 4H таймфрейме
+rsi_4h = request.security(syminfo.tickerid, "240", ta.rsi(close, rsi_length_4h))
+
+// ===============================
+// Расчеты StochRSI
+// ===============================
+// StochRSI на текущем таймфрейме
+rsi_for_stoch = ta.rsi(rsi_source, lengthRSI)
+k_current = ta.sma(ta.stoch(rsi_for_stoch, rsi_for_stoch, rsi_for_stoch, lengthStoch), smoothK)
+d_current = ta.sma(k_current, smoothD)
+
+// StochRSI на 15M таймфрейме
+calculate_stochrsi_15m() =>
+    rsi_15m = ta.rsi(close, lengthRSI)
+    k = ta.sma(ta.stoch(rsi_15m, rsi_15m, rsi_15m, lengthStoch), smoothK)
+    d = ta.sma(k, smoothD)
+    [k, d]
+
+[k_15m, d_15m] = request.security(syminfo.tickerid, "15", calculate_stochrsi_15m())
+
+// ===============================
+// Определение дивергенций
+// ===============================
+// Параметры для поиска дивергенций
+lookback_right = 5
+lookback_left = 5
+range_upper = 60
+range_lower = 5
+
+// Функция поиска пивотов
+find_divergence(osc, price_src, lookback_l, lookback_r, range_low, range_high, is_bullish) =>
+    plFound = na(ta.pivotlow(osc, lookback_l, lookback_r)) ? false : true
+    phFound = na(ta.pivothigh(osc, lookback_l, lookback_r)) ? false : true
+    
+    // Для бычьей дивергенции ищем минимумы
+    if is_bullish
+        oscLL = osc[lookback_r] < ta.valuewhen(plFound, osc[lookback_r], 1) and plFound
+        priceHL = price_src[lookback_r] > ta.valuewhen(plFound, price_src[lookback_r], 1)
+        bullCond = priceHL and oscLL and plFound
+        bullCond
+    else
+        // Для медвежьей дивергенции ищем максимумы
+        oscLH = osc[lookback_r] > ta.valuewhen(phFound, osc[lookback_r], 1) and phFound
+        priceLH = price_src[lookback_r] < ta.valuewhen(phFound, price_src[lookback_r], 1)
+        bearCond = priceLH and oscLH and phFound
+        bearCond
+
+// Поиск дивергенций на RSI
+bullish_div = find_divergence(rsi_current, low, lookback_left, lookback_right, range_lower, range_upper, true)
+bearish_div = find_divergence(rsi_current, high, lookback_left, lookback_right, range_lower, range_upper, false)
+
+// ===============================
+// Визуализация
+// ===============================
+
+// Горизонтальные линии уровней
+h0 = hline(0, "0", color=color.new(color.gray, 80), linestyle=hline.style_dotted)
+h20 = hline(oversold_short, "Short Exit (20)", color=color.new(color.red, 70), linestyle=hline.style_dashed)
+h25 = hline(oversold_long, "Long Entry (25)", color=color.new(color.green, 70), linestyle=hline.style_dashed)
+h50 = hline(50, "Middle (50)", color=color.new(color.gray, 50), linestyle=hline.style_solid)
+h75 = hline(overbought_short, "Short Entry (75)", color=color.new(color.red, 70), linestyle=hline.style_dashed)
+h80 = hline(overbought_long, "Long Exit (80)", color=color.new(color.green, 70), linestyle=hline.style_dashed)
+h100 = hline(100, "100", color=color.new(color.gray, 80), linestyle=hline.style_dotted)
+
+// Заливка зон
+fill(h0, h20, color=color.new(color.red, 90), title="Extreme Oversold Zone")
+fill(h20, h25, color=color.new(color.orange, 90), title="Oversold Zone")
+fill(h75, h80, color=color.new(color.orange, 90), title="Overbought Zone")
+fill(h80, h100, color=color.new(color.green, 90), title="Extreme Overbought Zone")
+
+// Отображение RSI
+if show_rsi
+    // RSI 4H с изменением цвета в зависимости от уровня
+    rsi_4h_color = rsi_4h > rsi_level ? rsi_bull_color : rsi_bear_color
+    plot(rsi_4h, title="RSI 4H", color=rsi_4h_color, linewidth=2, style=plot.style_line)
+    
+    // RSI на текущем таймфрейме (более тонкая линия)
+    plot(rsi_current, title="RSI Current", color=color.new(color.purple, 30), linewidth=1, style=plot.style_line)
+
+// Отображение StochRSI
+if show_stochrsi
+    // StochRSI K и D на 15-минутном таймфрейме
+    plot(k_15m, title="StochRSI K (15m)", color=stoch_k_color, linewidth=2)
+    plot(d_15m, title="StochRSI D (15m)", color=stoch_d_color, linewidth=1)
+    
+    // StochRSI на текущем таймфрейме (пунктирная линия)
+    plot(k_current, title="StochRSI K (Current)", color=color.new(stoch_k_color, 50), linewidth=1, style=plot.style_stepline)
+
+// ===============================
+// Сигналы и маркеры
+// ===============================
+
+// Определение условий входа/выхода
+rsi_above_50 = rsi_4h > rsi_level
+rsi_below_50 = rsi_4h < rsi_level
+
+// Сигналы лонг
+long_entry_signal = rsi_above_50 and ta.crossover(k_15m, oversold_long)
+long_exit_signal = ta.crossunder(k_15m, overbought_long)
+
+// Сигналы шорт
+short_entry_signal = rsi_below_50 and ta.crossunder(k_15m, overbought_short)
+short_exit_signal = ta.crossover(k_15m, oversold_short)
+
+// Отображение сигналов
+plotshape(long_entry_signal, title="Long Entry", location=location.bottom, 
+         color=color.green, style=shape.triangleup, size=size.small)
+plotshape(short_entry_signal, title="Short Entry", location=location.top, 
+         color=color.red, style=shape.triangledown, size=size.small)
+
+// Маркеры дивергенций
+plotshape(bullish_div, title="Bullish Divergence", location=location.bottom, 
+         color=color.lime, style=shape.labelup, text="Bull", size=size.tiny)
+plotshape(bearish_div, title="Bearish Divergence", location=location.top, 
+         color=color.fuchsia, style=shape.labeldown, text="Bear", size=size.tiny)
+
+// ===============================
+// Информационные метки
+// ===============================
+
+// Отображение текущих значений в правом верхнем углу
+var label info_label = na
+label.delete(info_label)
+
+if barstate.islast
+    label_text = "RSI 4H: " + str.tostring(rsi_4h, "#.##") + 
+                (rsi_above_50 ? " ↑" : " ↓") + "\n" +
+                "StochRSI K: " + str.tostring(k_15m, "#.##") + "\n" +
+                "StochRSI D: " + str.tostring(d_15m, "#.##") + "\n" +
+                "Trend: " + (rsi_above_50 ? "BULLISH" : "BEARISH")
+    
+    info_label := label.new(bar_index + 5, 85, label_text, 
+                           color=color.new(color.black, 85),
+                           textcolor=color.white,
+                           style=label.style_label_left,
+                           size=size.small)
+
+// ===============================
+// Алерты
+// ===============================
+alertcondition(long_entry_signal, title="Long Entry Alert", 
+              message="Long Entry Signal: RSI > 50, StochRSI crossed above 25")
+
+alertcondition(long_exit_signal, title="Long Exit Alert", 
+              message="Long Exit Signal: StochRSI crossed below 80")
+
+alertcondition(short_entry_signal, title="Short Entry Alert", 
+              message="Short Entry Signal: RSI < 50, StochRSI crossed below 75")
+
+alertcondition(short_exit_signal, title="Short Exit Alert", 
+              message="Short Exit Signal: StochRSI crossed above 20")
+
+alertcondition(bullish_div, title="Bullish Divergence Alert", 
+              message="Bullish Divergence detected on RSI")
+
+alertcondition(bearish_div, title="Bearish Divergence Alert", 
+              message="Bearish Divergence detected on RSI")

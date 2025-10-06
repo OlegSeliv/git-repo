@@ -1,0 +1,225 @@
+//@version=5
+strategy("RSI + StochRSI Trading Bot", overlay=true, initial_capital=10000, 
+         default_qty_type=strategy.percent_of_equity, default_qty_value=100,
+         commission_type=strategy.commission.percent, commission_value=0.1)
+
+// ===============================
+// Входные параметры
+// ===============================
+// RSI параметры для 4H таймфрейма
+rsi_length_4h = input.int(14, title="RSI Length (4H)", minval=1, group="RSI Settings")
+rsi_level = input.float(50, title="RSI Trend Level", group="RSI Settings")
+
+// StochRSI параметры для 15M таймфрейма  
+lengthRSI = input.int(8, title="StochRSI - RSI Length", minval=8, group="StochRSI Settings")
+lengthStoch = input.int(5, title="StochRSI - Stoch Length", minval=5, group="StochRSI Settings")
+smoothK = input.int(3, title="StochRSI - Smooth K", minval=3, group="StochRSI Settings")
+smoothD = input.int(3, title="StochRSI - Smooth D", minval=3, group="StochRSI Settings")
+
+// Уровни StochRSI
+stoch_oversold_long = input.float(25, title="StochRSI Long Entry Level", group="StochRSI Levels")
+stoch_overbought_long = input.float(80, title="StochRSI Long Exit Level", group="StochRSI Levels")
+stoch_overbought_short = input.float(75, title="StochRSI Short Entry Level", group="StochRSI Levels")
+stoch_oversold_short = input.float(20, title="StochRSI Short Exit Level", group="StochRSI Levels")
+
+// Параметры дивергенции
+use_divergence = input.bool(true, title="Use RSI Divergence", group="Divergence Settings")
+divergence_lookback = input.int(50, title="Divergence Lookback Bars", minval=10, group="Divergence Settings")
+divergence_min_bars = input.int(5, title="Min Bars Between Pivots", minval=2, group="Divergence Settings")
+
+// ===============================
+// Расчет RSI на 4H таймфрейме
+// ===============================
+rsi_4h = request.security(syminfo.tickerid, "240", ta.rsi(close, rsi_length_4h))
+rsi_above_50 = rsi_4h > rsi_level
+rsi_below_50 = rsi_4h < rsi_level
+
+// ===============================
+// Расчет StochRSI на 15M таймфрейме
+// ===============================
+calculate_stochrsi() =>
+    rsi_15m = ta.rsi(close, lengthRSI)
+    k = ta.sma(ta.stoch(rsi_15m, rsi_15m, rsi_15m, lengthStoch), smoothK)
+    d = ta.sma(k, smoothD)
+    [k, d]
+
+[stoch_k_15m, stoch_d_15m] = request.security(syminfo.tickerid, "15", calculate_stochrsi())
+
+// Предыдущие значения StochRSI для определения пересечений
+stoch_k_15m_prev = stoch_k_15m[1]
+
+// ===============================
+// Определение дивергенций RSI
+// ===============================
+// Функция для поиска пиков и впадин
+find_pivots(src, lookback, isHigh) =>
+    pivot_value = isHigh ? ta.pivothigh(src, lookback, lookback) : ta.pivotlow(src, lookback, lookback)
+    pivot_value
+
+// Поиск бычьей дивергенции (цена делает новый минимум, RSI делает более высокий минимум)
+bullish_divergence = false
+if use_divergence
+    // Ищем последние два минимума цены
+    price_low1 = ta.valuewhen(ta.pivotlow(low, divergence_min_bars, divergence_min_bars), low, 0)
+    price_low2 = ta.valuewhen(ta.pivotlow(low, divergence_min_bars, divergence_min_bars), low, 1)
+    
+    // Ищем соответствующие минимумы RSI
+    rsi_low1 = ta.valuewhen(ta.pivotlow(low, divergence_min_bars, divergence_min_bars), rsi_4h, 0)
+    rsi_low2 = ta.valuewhen(ta.pivotlow(low, divergence_min_bars, divergence_min_bars), rsi_4h, 1)
+    
+    // Проверяем условие бычьей дивергенции
+    if not na(price_low1) and not na(price_low2) and not na(rsi_low1) and not na(rsi_low2)
+        bullish_divergence := price_low1 < price_low2 and rsi_low1 > rsi_low2
+
+// Поиск медвежьей дивергенции (цена делает новый максимум, RSI делает более низкий максимум)
+bearish_divergence = false
+if use_divergence
+    // Ищем последние два максимума цены
+    price_high1 = ta.valuewhen(ta.pivothigh(high, divergence_min_bars, divergence_min_bars), high, 0)
+    price_high2 = ta.valuewhen(ta.pivothigh(high, divergence_min_bars, divergence_min_bars), high, 1)
+    
+    // Ищем соответствующие максимумы RSI
+    rsi_high1 = ta.valuewhen(ta.pivothigh(high, divergence_min_bars, divergence_min_bars), rsi_4h, 0)
+    rsi_high2 = ta.valuewhen(ta.pivothigh(high, divergence_min_bars, divergence_min_bars), rsi_4h, 1)
+    
+    // Проверяем условие медвежьей дивергенции
+    if not na(price_high1) and not na(price_high2) and not na(rsi_high1) and not na(rsi_high2)
+        bearish_divergence := price_high1 > price_high2 and rsi_high1 < rsi_high2
+
+// ===============================
+// Сигналы для входа и выхода
+// ===============================
+
+// ЛОНГ условия
+// Вход: RSI > 50 и StochRSI пересекает уровень 25 снизу вверх
+long_entry_condition = rsi_above_50 and 
+                      ta.crossover(stoch_k_15m, stoch_oversold_long)
+
+// Усиливаем сигнал при наличии бычьей дивергенции
+long_entry_with_divergence = long_entry_condition or 
+                            (rsi_above_50 and bullish_divergence and stoch_k_15m < 30)
+
+// Выход: StochRSI пересекает уровень 80 сверху вниз
+long_exit_condition = ta.crossunder(stoch_k_15m, stoch_overbought_long)
+
+// ШОРТ условия
+// Вход: RSI < 50 и StochRSI пересекает уровень 75 сверху вниз
+short_entry_condition = rsi_below_50 and 
+                       ta.crossunder(stoch_k_15m, stoch_overbought_short)
+
+// Усиливаем сигнал при наличии медвежьей дивергенции
+short_entry_with_divergence = short_entry_condition or 
+                             (rsi_below_50 and bearish_divergence and stoch_k_15m > 70)
+
+// Выход: StochRSI пересекает уровень 20 снизу вверх
+short_exit_condition = ta.crossover(stoch_k_15m, stoch_oversold_short)
+
+// ===============================
+// Выполнение торговых операций
+// ===============================
+
+// Определяем, какой сигнал использовать (с дивергенцией или без)
+final_long_entry = use_divergence ? long_entry_with_divergence : long_entry_condition
+final_short_entry = use_divergence ? short_entry_with_divergence : short_entry_condition
+
+// Открытие позиций
+if final_long_entry and strategy.position_size == 0
+    strategy.entry("Long", strategy.long)
+    
+if final_short_entry and strategy.position_size == 0
+    strategy.entry("Short", strategy.short)
+
+// Закрытие позиций
+if strategy.position_size > 0 and long_exit_condition
+    strategy.close("Long")
+    
+if strategy.position_size < 0 and short_exit_condition
+    strategy.close("Short")
+
+// ===============================
+// Визуализация
+// ===============================
+
+// Отображаем сигналы входа на графике
+plotshape(final_long_entry and strategy.position_size == 0, 
+         title="Long Entry", location=location.belowbar, 
+         color=color.green, style=shape.triangleup, size=size.small)
+
+plotshape(final_short_entry and strategy.position_size == 0, 
+         title="Short Entry", location=location.abovebar, 
+         color=color.red, style=shape.triangledown, size=size.small)
+
+// Отображаем сигналы выхода
+plotshape(strategy.position_size > 0 and long_exit_condition, 
+         title="Long Exit", location=location.abovebar, 
+         color=color.orange, style=shape.xcross, size=size.small)
+
+plotshape(strategy.position_size < 0 and short_exit_condition, 
+         title="Short Exit", location=location.belowbar, 
+         color=color.orange, style=shape.xcross, size=size.small)
+
+// Отображаем дивергенции
+plotshape(bullish_divergence and use_divergence, 
+         title="Bullish Divergence", location=location.belowbar, 
+         color=color.lime, style=shape.labelup, text="Bull Div", size=size.tiny)
+
+plotshape(bearish_divergence and use_divergence, 
+         title="Bearish Divergence", location=location.abovebar, 
+         color=color.fuchsia, style=shape.labeldown, text="Bear Div", size=size.tiny)
+
+// ===============================
+// Информационная панель
+// ===============================
+var table info_table = table.new(position.top_right, 4, 5, bgcolor=color.new(color.black, 85))
+
+if barstate.islast
+    // Заголовки
+    table.cell(info_table, 0, 0, "Indicator", bgcolor=color.new(color.blue, 70), text_color=color.white)
+    table.cell(info_table, 1, 0, "Value", bgcolor=color.new(color.blue, 70), text_color=color.white)
+    table.cell(info_table, 2, 0, "Signal", bgcolor=color.new(color.blue, 70), text_color=color.white)
+    
+    // RSI 4H
+    table.cell(info_table, 0, 1, "RSI 4H", text_color=color.white)
+    table.cell(info_table, 1, 1, str.tostring(rsi_4h, "#.##"), text_color=color.white)
+    table.cell(info_table, 2, 1, rsi_above_50 ? "LONG" : "SHORT", 
+              text_color=rsi_above_50 ? color.green : color.red)
+    
+    // StochRSI 15M
+    table.cell(info_table, 0, 2, "StochRSI K", text_color=color.white)
+    table.cell(info_table, 1, 2, str.tostring(stoch_k_15m, "#.##"), text_color=color.white)
+    
+    // Current Position
+    table.cell(info_table, 0, 3, "Position", text_color=color.white)
+    position_text = strategy.position_size > 0 ? "LONG" : 
+                   strategy.position_size < 0 ? "SHORT" : "FLAT"
+    position_color = strategy.position_size > 0 ? color.green : 
+                    strategy.position_size < 0 ? color.red : color.gray
+    table.cell(info_table, 1, 3, position_text, text_color=position_color)
+    
+    // Divergence Status
+    if use_divergence
+        table.cell(info_table, 0, 4, "Divergence", text_color=color.white)
+        div_text = bullish_divergence ? "BULLISH" : 
+                  bearish_divergence ? "BEARISH" : "NONE"
+        div_color = bullish_divergence ? color.lime : 
+                   bearish_divergence ? color.fuchsia : color.gray
+        table.cell(info_table, 1, 4, div_text, text_color=div_color)
+
+// ===============================
+// Алерты
+// ===============================
+alertcondition(final_long_entry and strategy.position_size == 0, 
+              title="Long Entry Signal", 
+              message="Long Entry: RSI > 50, StochRSI crossed above 25")
+
+alertcondition(final_short_entry and strategy.position_size == 0, 
+              title="Short Entry Signal", 
+              message="Short Entry: RSI < 50, StochRSI crossed below 75")
+
+alertcondition(strategy.position_size > 0 and long_exit_condition, 
+              title="Long Exit Signal", 
+              message="Long Exit: StochRSI crossed below 80")
+
+alertcondition(strategy.position_size < 0 and short_exit_condition, 
+              title="Short Exit Signal", 
+              message="Short Exit: StochRSI crossed above 20")
