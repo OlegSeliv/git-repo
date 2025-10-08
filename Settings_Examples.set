@@ -1,0 +1,112 @@
+;---
+; Примеры настроек для торгового робота TradingRobot.mq5
+; Скопируйте этот файл в папку: MQL5\Presets
+;---
+
+;---
+; Консервативная стратегия для H1
+;---
+[Conservative_H1]
+FastMA_Period=10
+SlowMA_Period=30
+MA_Method=0
+MA_Price=1
+LotSize=0.01
+UseAutoLot=0
+RiskPercent=1.00
+StopLoss=100
+TakeProfit=200
+MagicNumber=123456
+TradeComment=MA Robot Conservative
+Slippage=10
+UseTrailingStop=0
+TrailingStop=50
+TrailingStep=10
+
+;---
+; Агрессивная стратегия для M15
+;---
+[Aggressive_M15]
+FastMA_Period=5
+SlowMA_Period=15
+MA_Method=1
+MA_Price=1
+LotSize=0.1
+UseAutoLot=1
+RiskPercent=2.00
+StopLoss=50
+TakeProfit=100
+MagicNumber=123457
+TradeComment=MA Robot Aggressive
+Slippage=10
+UseTrailingStop=1
+TrailingStop=30
+TrailingStep=5
+
+;---
+; Сбалансированная стратегия для H4
+;---
+[Balanced_H4]
+FastMA_Period=20
+SlowMA_Period=50
+MA_Method=0
+MA_Price=1
+LotSize=0.1
+UseAutoLot=1
+RiskPercent=1.50
+StopLoss=200
+TakeProfit=400
+MagicNumber=123458
+TradeComment=MA Robot Balanced
+Slippage=10
+UseTrailingStop=1
+TrailingStop=100
+TrailingStep=20
+
+;---
+; Долгосрочная стратегия для D1
+;---
+[LongTerm_D1]
+FastMA_Period=30
+SlowMA_Period=100
+MA_Method=1
+MA_Price=1
+LotSize=0.05
+UseAutoLot=1
+RiskPercent=1.00
+StopLoss=500
+TakeProfit=1000
+MagicNumber=123459
+TradeComment=MA Robot LongTerm
+Slippage=20
+UseTrailingStop=1
+TrailingStop=250
+TrailingStep=50
+
+;---
+; Скальпинг для M5 (высокий риск!)
+;---
+[Scalping_M5]
+FastMA_Period=3
+SlowMA_Period=10
+MA_Method=1
+MA_Price=1
+LotSize=0.01
+UseAutoLot=0
+RiskPercent=0.50
+StopLoss=20
+TakeProfit=30
+MagicNumber=123460
+TradeComment=MA Robot Scalping
+Slippage=5
+UseTrailingStop=0
+TrailingStop=15
+TrailingStep=3
+
+;---
+; Примечания:
+; MA_Method: 0=SMA, 1=EMA, 2=SMMA, 3=LWMA
+; MA_Price: 0=Close, 1=Open, 2=High, 3=Low, 4=Median, 5=Typical, 6=Weighted
+; UseAutoLot: 0=false, 1=true
+; UseTrailingStop: 0=false, 1=true
+;---
