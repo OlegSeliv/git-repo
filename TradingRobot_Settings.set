@@ -1,0 +1,24 @@
+;--- Файл настроек для торгового робота TradingRobot.mq5
+;--- Рекомендуемые параметры для EURUSD H1
+
+;=== Основные настройки ===
+LotSize=0.1
+MagicNumber=12345
+TradeComment=TradingRobot
+
+;=== Параметры стратегии ===
+FastMA_Period=10
+SlowMA_Period=20
+MA_Method=1
+MA_Price=1
+
+;=== Управление рисками ===
+StopLoss=50
+TakeProfit=100
+MaxRiskPercent=2.0
+MaxOpenPositions=1
+
+;=== Временные фильтры ===
+StartHour=9
+EndHour=17
+TradeOnFriday=1
