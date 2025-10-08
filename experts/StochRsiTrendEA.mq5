@@ -40,6 +40,16 @@ input bool   InpTrailUseBarClose       = true;     // Use last closed bar price 
 input int    InpMinTrailStepPoints     = 10;       // Minimal improvement to move SL (points)
 input bool   InpEnableStochExit        = false;    // Enable Stochastic extremum exit (95/5)
 
+// Break-even and partial take profit
+input bool   InpEnableBreakeven        = true;     // Enable breakeven move of SL
+input double InpBETriggerAtrMult       = 1.5;      // Trigger at X * ATR in profit
+input int    InpBEOffsetPoints         = 0;        // Add offset in points beyond entry (>=0)
+
+input bool   InpEnablePartialClose     = true;     // Enable partial close
+input double InpPartialTriggerAtrMult  = 2.0;      // Trigger at X * ATR in profit
+input double InpPartialClosePercent    = 0.50;     // Portion to close (0..1]
+input double InpPartialMinVolume       = 0.01;     // Minimal remaining volume after partial
+
 input int    InpDeviationPoints        = 30;       // Max slippage (points)
 input ulong  InpMagicNumber            = 20251008; // Magic number
 
@@ -50,6 +60,11 @@ int      g_atrHandle   = INVALID_HANDLE;
 
 CTrade   g_trade;
 datetime g_lastSignalBarTime = 0; // last processed bar time on signal timeframe (e.g., M15)
+
+// State tracking for current position (single position per symbol)
+ulong    g_trackedTicket      = 0;
+bool     g_breakevenApplied   = false;
+bool     g_partialApplied     = false;
 
 //--------------------------- Helper Functions --------------------------
 bool CopySingleBufferValue(const int handle, const int bufferIndex, const int shift, double &value)
@@ -180,6 +195,178 @@ bool PlaceOrderWithATRSL(const bool isBuy, const double atrValue)
       else Print("Sell placed. SL=", DoubleToString(slPrice, (int)_Digits));
    }
    return result;
+}
+
+double NormalizeVolumeToStep(const double volume)
+{
+   double minVol = 0.0, maxVol = 0.0, stepVol = 0.0;
+   SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN, minVol);
+   SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX, maxVol);
+   SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP, stepVol);
+
+   double v = volume;
+   if(stepVol > 0.0)
+      v = MathFloor(v / stepVol) * stepVol; // round down to step
+   if(v < minVol)
+      v = 0.0; // signal invalid
+   if(maxVol > 0.0 && v > maxVol)
+      v = maxVol;
+   return v;
+}
+
+void ResetPositionStateIfChanged()
+{
+   if(!PositionSelect(_Symbol))
+   {
+      g_trackedTicket    = 0;
+      g_breakevenApplied = false;
+      g_partialApplied   = false;
+      return;
+   }
+   ulong ticket = (ulong)PositionGetInteger(POSITION_TICKET);
+   if(ticket != g_trackedTicket)
+   {
+      g_trackedTicket    = ticket;
+      g_breakevenApplied = false;
+      g_partialApplied   = false;
+   }
+}
+
+bool ApplyBreakevenIfTriggered(const double atrValue)
+{
+   if(!InpEnableBreakeven)
+      return false;
+   if(g_breakevenApplied)
+      return false;
+   if(!PositionSelect(_Symbol))
+      return false;
+
+   long posType = (long)PositionGetInteger(POSITION_TYPE);
+   double entry = PositionGetDouble(POSITION_PRICE_OPEN);
+   double currSL = PositionGetDouble(POSITION_SL);
+
+   double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   if(bid <= 0.0 || ask <= 0.0)
+      return false;
+
+   double refPrice = InpTrailUseBarClose ? iClose(_Symbol, InpSignalTimeframe, 1)
+                                         : (posType == POSITION_TYPE_BUY ? bid : ask);
+   if(refPrice <= 0.0 || atrValue <= 0.0)
+      return false;
+
+   double triggerDistance = InpBETriggerAtrMult * atrValue;
+   long stopsLevel = 0;
+   if(!SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL, stopsLevel))
+      stopsLevel = 0;
+
+   double minMovePrice = (double)InpMinTrailStepPoints * _Point;
+
+   if(posType == POSITION_TYPE_BUY)
+   {
+      double profitDistance = refPrice - entry;
+      if(profitDistance < triggerDistance)
+         return false;
+
+      double candidateSL = entry + (double)InpBEOffsetPoints * _Point;
+      double maxAllowedSL = bid - (double)stopsLevel * _Point;
+      double newSL = MathMin(candidateSL, maxAllowedSL);
+      newSL = NormalizePrice(newSL);
+
+      if(newSL > 0.0 && (currSL == 0.0 || newSL > currSL + minMovePrice))
+      {
+         bool ok = g_trade.PositionModify(_Symbol, newSL, PositionGetDouble(POSITION_TP));
+         if(ok) { g_breakevenApplied = true; Print("Breakeven BUY applied at ", DoubleToString(newSL, (int)_Digits)); }
+         else    { Print("Breakeven BUY modify failed. Error: ", _LastError); }
+         return ok;
+      }
+   }
+   else if(posType == POSITION_TYPE_SELL)
+   {
+      double profitDistance = entry - refPrice;
+      if(profitDistance < triggerDistance)
+         return false;
+
+      double candidateSL = entry - (double)InpBEOffsetPoints * _Point; // lower SL increases locked profit
+      double minAllowedSL = ask + (double)stopsLevel * _Point;         // SL must remain above current price
+      double newSL = MathMax(candidateSL, minAllowedSL);
+      newSL = NormalizePrice(newSL);
+
+      if(newSL > 0.0 && (currSL == 0.0 || newSL < currSL - minMovePrice))
+      {
+         bool ok = g_trade.PositionModify(_Symbol, newSL, PositionGetDouble(POSITION_TP));
+         if(ok) { g_breakevenApplied = true; Print("Breakeven SELL applied at ", DoubleToString(newSL, (int)_Digits)); }
+         else    { Print("Breakeven SELL modify failed. Error: ", _LastError); }
+         return ok;
+      }
+   }
+   return false;
+}
+
+bool ApplyPartialCloseIfTriggered(const double atrValue)
+{
+   if(!InpEnablePartialClose)
+      return false;
+   if(g_partialApplied)
+      return false;
+   if(!PositionSelect(_Symbol))
+      return false;
+
+   long posType = (long)PositionGetInteger(POSITION_TYPE);
+   double entry = PositionGetDouble(POSITION_PRICE_OPEN);
+   double volume = PositionGetDouble(POSITION_VOLUME);
+
+   if(volume <= 0.0)
+      return false;
+
+   double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   if(bid <= 0.0 || ask <= 0.0)
+      return false;
+
+   double refPrice = InpTrailUseBarClose ? iClose(_Symbol, InpSignalTimeframe, 1)
+                                         : (posType == POSITION_TYPE_BUY ? bid : ask);
+   if(refPrice <= 0.0 || atrValue <= 0.0)
+      return false;
+
+   double triggerDistance = InpPartialTriggerAtrMult * atrValue;
+   double profitDistance  = (posType == POSITION_TYPE_BUY) ? (refPrice - entry) : (entry - refPrice);
+   if(profitDistance < triggerDistance)
+      return false;
+
+   // Compute partial close volume
+   double closeVol = volume * InpPartialClosePercent;
+   if(closeVol <= 0.0)
+      return false;
+   closeVol = NormalizeVolumeToStep(closeVol);
+   if(closeVol <= 0.0)
+      return false;
+
+   // Ensure remaining volume >= InpPartialMinVolume and >= SYMBOL_VOLUME_MIN
+   double remaining = volume - closeVol;
+   double minVol = 0.0;
+   SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN, minVol);
+   double requiredMin = MathMax(InpPartialMinVolume, minVol);
+   if(remaining < requiredMin)
+   {
+      closeVol = volume - requiredMin;
+      closeVol = NormalizeVolumeToStep(closeVol);
+   }
+
+   if(closeVol <= 0.0)
+      return false;
+
+   bool ok = g_trade.PositionClosePartial(_Symbol, closeVol);
+   if(ok)
+   {
+      g_partialApplied = true;
+      Print("Partial close executed: ", DoubleToString(closeVol, 2), " lots at profit distance ATR*", DoubleToString(InpPartialTriggerAtrMult, 2));
+   }
+   else
+   {
+      Print("Partial close failed. Error: ", _LastError);
+   }
+   return ok;
 }
 
 bool UpdateTrailingStop(const double atrValue)
@@ -316,11 +503,16 @@ void OnTick()
       return;
    }
 
-   // Attempt exit first if a position is open
+   // Attempt management first if a position is open
    if(HasOpenPositionForSymbol())
    {
+      ResetPositionStateIfChanged();
       // 1) Apply/update trailing stop first to avoid contradiction with exits
       UpdateTrailingStop(atrLastClosed);
+      // 2) Apply breakeven if configured and triggered
+      ApplyBreakevenIfTriggered(atrLastClosed);
+      // 3) Apply partial close if configured and triggered
+      ApplyPartialCloseIfTriggered(atrLastClosed);
       // 2) Optional Stochastic exit logic (can be disabled to favor trailing)
       if(InpEnableStochExit)
          ClosePositionIfExitSignal(stochK1);
