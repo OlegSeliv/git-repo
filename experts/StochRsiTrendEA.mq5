@@ -8,7 +8,7 @@
 //+------------------------------------------------------------------+
 #property strict
 #property description "EA opens trades with RSI(H4) trend filter and Stochastic(M15) entries."
-#property description "Stop-loss = 2 x ATR(M15). Exits by Stochastic reaching 95 (long) / 5 (short)."
+#property description "Stop-loss = 2 x ATR(M15). Optional Stochastic exits and ATR trailing stop."
 #property version   "1.00"
 
 #include <Trade/Trade.mqh>
@@ -32,6 +32,13 @@ input double InpLongEntryLevel         = 25.0;     // Stochastic level for long 
 input double InpShortEntryLevel        = 75.0;     // Stochastic level for short entries
 input double InpExitLongLevel          = 95.0;     // Exit long when Stoch >= level
 input double InpExitShortLevel         = 5.0;      // Exit short when Stoch <= level
+
+// Trailing stop and exits
+input bool   InpEnableTrailingStop     = true;     // Enable ATR-based trailing stop
+input double InpTrailAtrMult           = 3.0;      // ATR multiple for trailing (chandelier-style)
+input bool   InpTrailUseBarClose       = true;     // Use last closed bar price instead of Bid/Ask
+input int    InpMinTrailStepPoints     = 10;       // Minimal improvement to move SL (points)
+input bool   InpEnableStochExit        = false;    // Enable Stochastic extremum exit (95/5)
 
 input int    InpDeviationPoints        = 30;       // Max slippage (points)
 input ulong  InpMagicNumber            = 20251008; // Magic number
@@ -175,6 +182,83 @@ bool PlaceOrderWithATRSL(const bool isBuy, const double atrValue)
    return result;
 }
 
+bool UpdateTrailingStop(const double atrValue)
+{
+   if(!InpEnableTrailingStop)
+      return false;
+   if(!PositionSelect(_Symbol))
+      return false;
+
+   long posType = (long)PositionGetInteger(POSITION_TYPE);
+   double currSL = PositionGetDouble(POSITION_SL);
+   double currTP = PositionGetDouble(POSITION_TP);
+
+   double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   if(bid <= 0.0 || ask <= 0.0)
+      return false;
+
+   // Base price for trailing reference: last closed bar price on signal TF or live Bid/Ask
+   double basePrice = 0.0;
+   if(InpTrailUseBarClose)
+      basePrice = iClose(_Symbol, InpSignalTimeframe, 1);
+   else
+      basePrice = (posType == POSITION_TYPE_BUY ? bid : ask);
+   if(basePrice <= 0.0 || atrValue <= 0.0)
+      return false;
+
+   long stopsLevel = 0;
+   if(!SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL, stopsLevel))
+      stopsLevel = 0;
+
+   double minMovePrice = (double)InpMinTrailStepPoints * _Point; // minimal improvement to update SL
+
+   if(posType == POSITION_TYPE_BUY)
+   {
+      // Candidate trailing stop using chandelier-like formula
+      double candidateSL = basePrice - InpTrailAtrMult * atrValue;
+      double maxAllowedSL = bid - (double)stopsLevel * _Point; // must be below current price with stops level
+      double newSL = MathMin(candidateSL, maxAllowedSL);
+      newSL = NormalizePrice(newSL);
+
+      if(newSL <= 0.0)
+         return false;
+
+      // Only tighten (raise) stop loss
+      if(currSL == 0.0 || newSL > currSL + minMovePrice)
+      {
+         bool ok = g_trade.PositionModify(_Symbol, newSL, currTP);
+         if(!ok)
+            Print("Trailing SL BUY modify failed. Error: ", _LastError);
+         else
+            Print("Trailing SL BUY updated to ", DoubleToString(newSL, (int)_Digits));
+         return ok;
+      }
+   }
+   else if(posType == POSITION_TYPE_SELL)
+   {
+      double candidateSL = basePrice + InpTrailAtrMult * atrValue;
+      double minAllowedSL = ask + (double)stopsLevel * _Point; // must be above current price by stops level
+      double newSL = MathMax(candidateSL, minAllowedSL);
+      newSL = NormalizePrice(newSL);
+
+      if(newSL <= 0.0)
+         return false;
+
+      // Only tighten (lower) stop loss for short
+      if(currSL == 0.0 || newSL < currSL - minMovePrice)
+      {
+         bool ok = g_trade.PositionModify(_Symbol, newSL, currTP);
+         if(!ok)
+            Print("Trailing SL SELL modify failed. Error: ", _LastError);
+         else
+            Print("Trailing SL SELL updated to ", DoubleToString(newSL, (int)_Digits));
+         return ok;
+      }
+   }
+   return false;
+}
+
 //------------------------------ Events ---------------------------------
 int OnInit()
 {
@@ -224,14 +308,7 @@ void OnTick()
       return;
    }
 
-   // Attempt exit first if a position is open
-   if(HasOpenPositionForSymbol())
-   {
-      ClosePositionIfExitSignal(stochK1);
-      return; // manage one action per bar
-   }
-
-   // No open position: check trend and entry conditions
+   // Fetch ATR(M15) last closed bar value for trailing/initial SL
    double atrLastClosed = 0.0;
    if(!CopySingleBufferValue(g_atrHandle, 0, 1, atrLastClosed))
    {
@@ -239,6 +316,18 @@ void OnTick()
       return;
    }
 
+   // Attempt exit first if a position is open
+   if(HasOpenPositionForSymbol())
+   {
+      // 1) Apply/update trailing stop first to avoid contradiction with exits
+      UpdateTrailingStop(atrLastClosed);
+      // 2) Optional Stochastic exit logic (can be disabled to favor trailing)
+      if(InpEnableStochExit)
+         ClosePositionIfExitSignal(stochK1);
+      return; // manage one action per bar
+   }
+
+   // No open position: check trend and entry conditions
    // Long setup: RSI(H4) > 50, Stoch rising from below and holding above 25
    bool allowLong = (rsiLastClosed > InpRSITrendLevel);
    if(allowLong)
