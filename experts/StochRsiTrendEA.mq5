@@ -52,6 +52,8 @@ input double InpPartialMinVolume       = 0.01;     // Minimal remaining volume a
 
 input int    InpDeviationPoints        = 30;       // Max slippage (points)
 input ulong  InpMagicNumber            = 20251008; // Magic number
+input bool   InpEnableEntrySound       = true;     // Play sound on entry
+input string InpEntrySoundFile         = "alert.wav"; // Sound file in terminal/sounds
 
 //------------------------------ Globals --------------------------------
 int      g_rsiHandle   = INVALID_HANDLE;
@@ -186,13 +188,19 @@ bool PlaceOrderWithATRSL(const bool isBuy, const double atrValue)
    {
       result = g_trade.Buy(InpLotSize, _Symbol, 0.0 /* market */, slPrice, 0.0 /* no TP */);
       if(!result) Print("Buy failed. Error: ", _LastError);
-      else Print("Buy placed. SL=", DoubleToString(slPrice, (int)_Digits));
+      else {
+         Print("Buy placed. SL=", DoubleToString(slPrice, (int)_Digits));
+         if(InpEnableEntrySound && StringLen(InpEntrySoundFile) > 0) PlaySound(InpEntrySoundFile);
+      }
    }
    else
    {
       result = g_trade.Sell(InpLotSize, _Symbol, 0.0 /* market */, slPrice, 0.0 /* no TP */);
       if(!result) Print("Sell failed. Error: ", _LastError);
-      else Print("Sell placed. SL=", DoubleToString(slPrice, (int)_Digits));
+      else {
+         Print("Sell placed. SL=", DoubleToString(slPrice, (int)_Digits));
+         if(InpEnableEntrySound && StringLen(InpEntrySoundFile) > 0) PlaySound(InpEntrySoundFile);
+      }
    }
    return result;
 }
