@@ -72,7 +72,6 @@ double CurrentSpreadPoints()
 bool CopyTwo(const int handle, const int buffer, double &prev, double &curr)
 {
    double vals[3];
-   ArraySetAsSeries(vals, true);
    int copied = CopyBuffer(handle, buffer, 0, 3, vals);
    if(copied < 2) return false;
    curr = vals[0];
@@ -114,7 +113,6 @@ bool IsRSIBelow(const int handle, double level)
 bool GetATR(double &atr)
 {
    double v[2];
-   ArraySetAsSeries(v, true);
    int copied = CopyBuffer(hATR_H1, 0, 0, 2, v);
    if(copied < 1) return false;
    atr = v[0];
@@ -183,7 +181,6 @@ bool M5_LongSignal(bool &crossedNow)
    crossedNow = false;
    // Need last two K values on entry TF
    double k[3];
-   ArraySetAsSeries(k, true);
    if(CopyBuffer(hStochEntry, 0, 0, 3, k) < 3) return false;
    double prev = k[1];
    double curr = k[0];
@@ -210,7 +207,6 @@ bool M5_ShortSignal(bool &crossedNow)
 {
    crossedNow = false;
    double k[3];
-   ArraySetAsSeries(k, true);
    if(CopyBuffer(hStochEntry, 0, 0, 3, k) < 3) return false;
    double prev = k[1];
    double curr = k[0];
