@@ -60,12 +60,12 @@ double g_point;
 
 double CurrentSpreadPoints(){ SymbolInfoTick(g_symbol, g_tick); return (g_tick.ask - g_tick.bid) / g_point; }
 
-bool CopyTwo(const int handle, const int buffer, double &prev, double &curr){ double v[3]; ArraySetAsSeries(v,true); if(CopyBuffer(handle,buffer,0,3,v)<2) return false; curr=v[0]; prev=v[1]; return true; }
+bool CopyTwo(const int handle, const int buffer, double &prev, double &curr){ double v[3]; if(CopyBuffer(handle,buffer,0,3,v)<2) return false; curr=v[0]; prev=v[1]; return true; }
 
 bool IsRSIAbove(const int handle, double level){ double p,c; if(!CopyTwo(handle,0,p,c)) return false; return c>level; }
 bool IsRSIBelow(const int handle, double level){ double p,c; if(!CopyTwo(handle,0,p,c)) return false; return c<level; }
 
-bool GetATR(double &atr){ double v[2]; ArraySetAsSeries(v,true); int c=CopyBuffer(hATR_H1,0,0,2,v); if(c<1) return false; atr=v[0]; return true; }
+bool GetATR(double &atr){ double v[2]; int c=CopyBuffer(hATR_H1,0,0,2,v); if(c<1) return false; atr=v[0]; return true; }
 
 bool CreateIndicators(){
   if(hStochEntry!=INVALID_HANDLE) IndicatorRelease(hStochEntry);
@@ -88,9 +88,9 @@ double NormalizeLot(double lot){ double step=SymbolInfoDouble(g_symbol,SYMBOL_VO
 
 double CalcAutoLot(double stopLossPoints){ if(stopLossPoints<=0) return NormalizeLot(InpMinLot); if(!InpAutoLotByBalance) return NormalizeLot(InpMinLot); double balance=AccountInfoDouble(ACCOUNT_BALANCE); double risk=balance*(InpRiskPerTradePct/100.0); double tv=SymbolInfoDouble(g_symbol,SYMBOL_TRADE_TICK_VALUE); double ts=SymbolInfoDouble(g_symbol,SYMBOL_TRADE_TICK_SIZE); if(tv<=0.0 || ts<=0.0) return NormalizeLot(InpMinLot); double moneyPerLot=(stopLossPoints*g_point/ts)*tv; if(moneyPerLot<=0) return NormalizeLot(InpMinLot); double lots=risk/moneyPerLot; if(lots<InpMinLot) lots=InpMinLot; return NormalizeLot(lots); }
 
-bool M5_LongSignal(bool &crossed){ crossed=false; double k[3]; ArraySetAsSeries(k,true); if(CopyBuffer(hStochEntry,0,0,3,k)<3) return false; double prev=k[1], cur=k[0]; if(prev<30.0 && cur>=30.0) crossed=true; double k1p,k1c,k2p,k2c; if(!CopyTwo(hStochF1,0,k1p,k1c)) return false; if(!CopyTwo(hStochF2,0,k2p,k2c)) return false; double r1p,r1c,r2p,r2c; if(!CopyTwo(hRSIF1,0,r1p,r1c)) return false; if(!CopyTwo(hRSIF2,0,r2p,r2c)) return false; bool dirOk=(k1c>k1p)&&(k2c>k2p); bool rsiOk=(r1c>50.0)&&(r2c>50.0); return dirOk&&rsiOk; }
+bool M5_LongSignal(bool &crossed){ crossed=false; double k[3]; if(CopyBuffer(hStochEntry,0,0,3,k)<3) return false; double prev=k[1], cur=k[0]; if(prev<30.0 && cur>=30.0) crossed=true; double k1p,k1c,k2p,k2c; if(!CopyTwo(hStochF1,0,k1p,k1c)) return false; if(!CopyTwo(hStochF2,0,k2p,k2c)) return false; double r1p,r1c,r2p,r2c; if(!CopyTwo(hRSIF1,0,r1p,r1c)) return false; if(!CopyTwo(hRSIF2,0,r2p,r2c)) return false; bool dirOk=(k1c>k1p)&&(k2c>k2p); bool rsiOk=(r1c>50.0)&&(r2c>50.0); return dirOk&&rsiOk; }
 
-bool M5_ShortSignal(bool &crossed){ crossed=false; double k[3]; ArraySetAsSeries(k,true); if(CopyBuffer(hStochEntry,0,0,3,k)<3) return false; double prev=k[1], cur=k[0]; if(prev>80.0 && cur<=80.0) crossed=true; double k1p,k1c,k2p,k2c; if(!CopyTwo(hStochF1,0,k1p,k1c)) return false; if(!CopyTwo(hStochF2,0,k2p,k2c)) return false; double r1p,r1c,r2p,r2c; if(!CopyTwo(hRSIF1,0,r1p,r1c)) return false; if(!CopyTwo(hRSIF2,0,r2p,r2c)) return false; bool dirOk=(k1c<k1p)&&(k2c<k2p); bool rsiOk=(r1c<50.0)&&(r2c<50.0); return dirOk&&rsiOk; }
+bool M5_ShortSignal(bool &crossed){ crossed=false; double k[3]; if(CopyBuffer(hStochEntry,0,0,3,k)<3) return false; double prev=k[1], cur=k[0]; if(prev>80.0 && cur<=80.0) crossed=true; double k1p,k1c,k2p,k2c; if(!CopyTwo(hStochF1,0,k1p,k1c)) return false; if(!CopyTwo(hStochF2,0,k2p,k2c)) return false; double r1p,r1c,r2p,r2c; if(!CopyTwo(hRSIF1,0,r1p,r1c)) return false; if(!CopyTwo(hRSIF2,0,r2p,r2c)) return false; bool dirOk=(k1c<k1p)&&(k2c<k2p); bool rsiOk=(r1c<50.0)&&(r2c<50.0); return dirOk&&rsiOk; }
 
 void ApplyTrailingStops(){ if(!InpUseTrailing) return; double atr; if(!GetATR(atr)) return; double dist=atr*InpTrailATRMult; if(!PositionSelect(g_symbol)) return; long type=(long)PositionGetInteger(POSITION_TYPE); double sl=PositionGetDouble(POSITION_SL); double pc=PositionGetDouble(POSITION_PRICE_CURRENT); double newSL=sl; if(type==POSITION_TYPE_BUY){ double cand=pc-dist; if(sl<cand-InpTrailStepPoints*g_point) newSL=cand; } else if(type==POSITION_TYPE_SELL){ double cand=pc+dist; if(sl==0.0 || sl>cand+InpTrailStepPoints*g_point) newSL=cand; } if(newSL!=sl && newSL>0) Trade.PositionModify(g_symbol,newSL,PositionGetDouble(POSITION_TP)); }
 
