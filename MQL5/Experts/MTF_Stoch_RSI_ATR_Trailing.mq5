@@ -2,7 +2,6 @@
 #property version   "1.00"
 #property strict
 #property description "MTF Stochastic/RSI entries, ATR SL, trailing, dynamic lot, sounds"
-#property script_show_inputs
 
 #include <Trade/Trade.mqh>
 
@@ -70,7 +69,7 @@ double CurrentSpreadPoints()
 }
 
 //=== Helper: copy last two values for any indicator ===
-bool CopyTwo(const int handle, const int buffer, const ENUM_TIMEFRAMES tf, double &prev, double &curr)
+bool CopyTwo(const int handle, const int buffer, double &prev, double &curr)
 {
    double vals[3];
    ArraySetAsSeries(vals, true);
@@ -85,14 +84,14 @@ bool CopyTwo(const int handle, const int buffer, const ENUM_TIMEFRAMES tf, doubl
 bool IsStochUp(const int handle)
 {
    double prevK, currK;
-   if(!CopyTwo(handle, 0, InpTF_EntryTF, prevK, currK)) return false;
+   if(!CopyTwo(handle, 0, prevK, currK)) return false;
    return currK > prevK;
 }
 
 bool IsStochDown(const int handle)
 {
    double prevK, currK;
-   if(!CopyTwo(handle, 0, InpTF_EntryTF, prevK, currK)) return false;
+   if(!CopyTwo(handle, 0, prevK, currK)) return false;
    return currK < prevK;
 }
 
@@ -100,14 +99,14 @@ bool IsStochDown(const int handle)
 bool IsRSIAbove(const int handle, double level)
 {
    double prev, curr;
-   if(!CopyTwo(handle, 0, InpTF_Filter1, prev, curr)) return false;
+   if(!CopyTwo(handle, 0, prev, curr)) return false;
    return curr > level;
 }
 
 bool IsRSIBelow(const int handle, double level)
 {
    double prev, curr;
-   if(!CopyTwo(handle, 0, InpTF_Filter1, prev, curr)) return false;
+   if(!CopyTwo(handle, 0, prev, curr)) return false;
    return curr < level;
 }
 
@@ -194,12 +193,12 @@ bool M5_LongSignal(bool &crossedNow)
 
    // Direction filters (H1, H4 stochastic up) and RSI>50
    double k1_prev, k1_curr, k2_prev, k2_curr;
-   if(!CopyTwo(hStochF1, 0, InpTF_Filter1, k1_prev, k1_curr)) return false;
-   if(!CopyTwo(hStochF2, 0, InpTF_Filter2, k2_prev, k2_curr)) return false;
+   if(!CopyTwo(hStochF1, 0, k1_prev, k1_curr)) return false;
+   if(!CopyTwo(hStochF2, 0, k2_prev, k2_curr)) return false;
 
    double r1_prev, r1_curr, r2_prev, r2_curr; // not used prev, but fetched
-   if(!CopyTwo(hRSIF1, 0, InpTF_Filter1, r1_prev, r1_curr)) return false;
-   if(!CopyTwo(hRSIF2, 0, InpTF_Filter2, r2_prev, r2_curr)) return false;
+   if(!CopyTwo(hRSIF1, 0, r1_prev, r1_curr)) return false;
+   if(!CopyTwo(hRSIF2, 0, r2_prev, r2_curr)) return false;
 
    bool dirOk = (k1_curr > k1_prev) && (k2_curr > k2_prev);
    bool rsiOk = (r1_curr > 50.0) && (r2_curr > 50.0);
@@ -220,12 +219,12 @@ bool M5_ShortSignal(bool &crossedNow)
    if(prev > 80.0 && curr <= 80.0) crossedNow = true;
 
    double k1_prev, k1_curr, k2_prev, k2_curr;
-   if(!CopyTwo(hStochF1, 0, InpTF_Filter1, k1_prev, k1_curr)) return false;
-   if(!CopyTwo(hStochF2, 0, InpTF_Filter2, k2_prev, k2_curr)) return false;
+   if(!CopyTwo(hStochF1, 0, k1_prev, k1_curr)) return false;
+   if(!CopyTwo(hStochF2, 0, k2_prev, k2_curr)) return false;
 
    double r1_prev, r1_curr, r2_prev, r2_curr;
-   if(!CopyTwo(hRSIF1, 0, InpTF_Filter1, r1_prev, r1_curr)) return false;
-   if(!CopyTwo(hRSIF2, 0, InpTF_Filter2, r2_prev, r2_curr)) return false;
+   if(!CopyTwo(hRSIF1, 0, r1_prev, r1_curr)) return false;
+   if(!CopyTwo(hRSIF2, 0, r2_prev, r2_curr)) return false;
 
    bool dirOk = (k1_curr < k1_prev) && (k2_curr < k2_prev);
    bool rsiOk = (r1_curr < 50.0) && (r2_curr < 50.0);
@@ -242,37 +241,30 @@ void ApplyTrailingStops()
    if(!GetATR(atr)) return;
    double trailDist = atr * InpTrailATRMult;
 
-   int total = PositionsTotal();
-   for(int i=0; i<total; ++i)
+   // Work with the current symbol's position only
+   if(!PositionSelect(g_symbol)) return;
+
+   long type = (long)PositionGetInteger(POSITION_TYPE);
+   double sl  = PositionGetDouble(POSITION_SL);
+   double price_current = PositionGetDouble(POSITION_PRICE_CURRENT);
+
+   double newSL = sl;
+   if(type == POSITION_TYPE_BUY)
    {
-      string sym = PositionGetSymbol(i);
-      if(sym != g_symbol) continue;
-      if(!PositionSelect(sym)) continue;
+      double candidate = price_current - trailDist;
+      if(sl < candidate - InpTrailStepPoints*g_point)
+         newSL = candidate;
+   }
+   else if(type == POSITION_TYPE_SELL)
+   {
+      double candidate = price_current + trailDist;
+      if(sl == 0.0 || sl > candidate + InpTrailStepPoints*g_point)
+         newSL = candidate;
+   }
 
-      long type = (long)PositionGetInteger(POSITION_TYPE);
-      double sl  = PositionGetDouble(POSITION_SL);
-      double price_open = PositionGetDouble(POSITION_PRICE_OPEN);
-      double price_current = PositionGetDouble(POSITION_PRICE_CURRENT);
-
-      double newSL = sl;
-      if(type == POSITION_TYPE_BUY)
-      {
-         double candidate = price_current - trailDist;
-         if(sl < candidate - InpTrailStepPoints*g_point)
-            newSL = candidate;
-      }
-      else if(type == POSITION_TYPE_SELL)
-      {
-         double candidate = price_current + trailDist;
-         if(sl == 0.0 || sl > candidate + InpTrailStepPoints*g_point)
-            newSL = candidate;
-      }
-
-      if(newSL != sl && newSL > 0)
-      {
-         Trade.PositionSelect(g_symbol);
-         Trade.PositionModify(g_symbol, newSL, PositionGetDouble(POSITION_TP));
-      }
+   if(newSL != sl && newSL > 0)
+   {
+      Trade.PositionModify(g_symbol, newSL, PositionGetDouble(POSITION_TP));
    }
 }
 
@@ -343,8 +335,10 @@ void OnTradeTransaction(const MqlTradeTransaction &trans,const MqlTradeRequest &
    {
       if(HistoryDealSelect(trans.deal))
       {
-         long deal_type = HistoryDealGetInteger(trans.deal, DEAL_TYPE);
-         if(deal_type==DEAL_SL || deal_type==DEAL_TP || deal_type==DEAL_PROFIT || deal_type==DEAL_CLOSE_BY)
+         long entry  = HistoryDealGetInteger(trans.deal, DEAL_ENTRY);
+         long reason = HistoryDealGetInteger(trans.deal, DEAL_REASON);
+         if(entry==DEAL_ENTRY_OUT || entry==DEAL_ENTRY_OUT_BY ||
+            reason==DEAL_REASON_SL || reason==DEAL_REASON_TP)
          {
             PlaySound(InpSoundExit);
          }
