@@ -1,6 +1,6 @@
 #property version   "1.00"
 #property strict
-#property description "MTF Stoch/RSI EA with ATR SL, trailing, auto lot, sounds"
+#property description "MTF Stoch/RSI EA with ATR SL, trailing, auto lot"
 
 #include <Trade/Trade.mqh>
 
@@ -38,9 +38,7 @@ input bool     InpAllowShort = true;                 // Allow short entries
 
 input bool     InpOneTradePerSignal = true;          // Avoid re-entering on same bar
 
-input bool     InpEnableSounds = true;               // Enable sound alerts
-input string   InpSoundEntry = "alert.wav";          // Sound for entry
-input string   InpSoundExit  = "alert2.wav";         // Sound for exit
+// Sounds removed
 
 CTrade Trade;
 MqlTick g_tick;
@@ -97,9 +95,9 @@ void ApplyTrailingStops(){ if(!InpUseTrailing) return; double atr; if(!GetATR(at
 bool CanTradeNow(){ if(!SymbolInfoTick(g_symbol,g_tick)) return false; if(CurrentSpreadPoints()>InpMaxSpreadPoints) return false; return true; }
 
 void TryOpenPositions(){ if(!CanTradeNow()) return; datetime bar=iTime(g_symbol,InpTF_EntryTF,0); double atr; if(!GetATR(atr)) return; double slPoints=(atr*InpAtrMultiplier)/g_point; bool crossed; if(InpAllowLong && M5_LongSignal(crossed)){ if(!InpOneTradePerSignal || (bar!=g_lastSignalBarTimeBuy && crossed)){ double ask=g_tick.ask; double sl=ask-atr*InpAtrMultiplier; double lot=CalcAutoLot(slPoints); Trade.SetDeviationInPoints(InpSlippagePoints); if(Trade.Buy(lot,g_symbol,ask,sl,0.0,"MTF Long")){ if(InpEnableSounds) PlaySound(InpSoundEntry); g_lastSignalBarTimeBuy=bar; } } }
-  if(InpAllowShort && M5_ShortSignal(crossed)){ if(!InpOneTradePerSignal || (bar!=g_lastSignalBarTimeSell && crossed)){ double bid=g_tick.bid; double sl=bid+atr*InpAtrMultiplier; double lot=CalcAutoLot(slPoints); Trade.SetDeviationInPoints(InpSlippagePoints); if(Trade.Sell(lot,g_symbol,bid,sl,0.0,"MTF Short")){ if(InpEnableSounds) PlaySound(InpSoundEntry); g_lastSignalBarTimeSell=bar; } } } }
+  if(InpAllowShort && M5_ShortSignal(crossed)){ if(!InpOneTradePerSignal || (bar!=g_lastSignalBarTimeSell && crossed)){ double bid=g_tick.bid; double sl=bid+atr*InpAtrMultiplier; double lot=CalcAutoLot(slPoints); Trade.SetDeviationInPoints(InpSlippagePoints); if(Trade.Sell(lot,g_symbol,bid,sl,0.0,"MTF Short")){ g_lastSignalBarTimeSell=bar; } } } }
 
-void OnTradeTransaction(const MqlTradeTransaction &trans,const MqlTradeRequest &request,const MqlTradeResult &result){ if(!InpEnableSounds) return; if(trans.type==TRADE_TRANSACTION_DEAL_ADD){ if(HistoryDealSelect(trans.deal)){ long entry=HistoryDealGetInteger(trans.deal,DEAL_ENTRY); if(entry==DEAL_ENTRY_OUT || entry==DEAL_ENTRY_OUT_BY){ PlaySound(InpSoundExit); } } } }
+void OnTradeTransaction(const MqlTradeTransaction &trans,const MqlTradeRequest &request,const MqlTradeResult &result){ /* sounds removed */ }
 
 int OnInit(){ g_symbol=_Symbol; g_digits=(int)SymbolInfoInteger(g_symbol,SYMBOL_DIGITS); g_point=SymbolInfoDouble(g_symbol,SYMBOL_POINT); Trade.SetAsyncMode(false); if(!CreateIndicators()) return INIT_FAILED; return INIT_SUCCEEDED; }
 

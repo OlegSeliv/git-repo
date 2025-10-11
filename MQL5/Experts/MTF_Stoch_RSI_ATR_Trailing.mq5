@@ -1,7 +1,7 @@
 #property copyright ""
 #property version   "1.00"
 #property strict
-#property description "MTF Stochastic/RSI entries, ATR SL, trailing, dynamic lot, sounds"
+#property description "MTF Stochastic/RSI entries, ATR SL, trailing, dynamic lot"
 
 #include <Trade/Trade.mqh>
 
@@ -37,9 +37,7 @@ input bool     InpAllowShort = true;                 // Allow short entries
 
 input bool     InpOneTradePerSignal = true;          // Avoid re-entering on same bar
 
-input bool     InpEnableSounds = true;               // Enable sound alerts
-input string   InpSoundEntry = "alert.wav";          // Sound for entry
-input string   InpSoundExit  = "alert2.wav";         // Sound for exit
+// Sounds removed
 
 //=== Globals ===
 CTrade Trade;
@@ -298,7 +296,6 @@ void TryOpenPositions()
          bool ok = Trade.Buy(lot, g_symbol, ask, sl, 0.0, "MTF Long");
          if(ok)
          {
-            if(InpEnableSounds) PlaySound(InpSoundEntry);
             g_lastSignalBarTimeBuy = barTime;
          }
       }
@@ -316,7 +313,6 @@ void TryOpenPositions()
          bool ok = Trade.Sell(lot, g_symbol, bid, sl, 0.0, "MTF Short");
          if(ok)
          {
-            if(InpEnableSounds) PlaySound(InpSoundEntry);
             g_lastSignalBarTimeSell = barTime;
          }
       }
@@ -324,23 +320,7 @@ void TryOpenPositions()
 }
 
 //=== Trade transaction for exit sounds ===
-void OnTradeTransaction(const MqlTradeTransaction &trans,const MqlTradeRequest &request,const MqlTradeResult &result)
-{
-   if(!InpEnableSounds) return;
-   if(trans.type==TRADE_TRANSACTION_DEAL_ADD)
-   {
-      if(HistoryDealSelect(trans.deal))
-      {
-         long entry  = HistoryDealGetInteger(trans.deal, DEAL_ENTRY);
-         long reason = HistoryDealGetInteger(trans.deal, DEAL_REASON);
-         if(entry==DEAL_ENTRY_OUT || entry==DEAL_ENTRY_OUT_BY ||
-            reason==DEAL_REASON_SL || reason==DEAL_REASON_TP)
-         {
-            PlaySound(InpSoundExit);
-         }
-      }
-   }
-}
+void OnTradeTransaction(const MqlTradeTransaction &trans,const MqlTradeRequest &request,const MqlTradeResult &result) { /* sounds removed */ }
 
 //=== Standard EA callbacks ===
 int OnInit()
