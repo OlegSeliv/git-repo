@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+
+{% block title %}Дашборд - Система управления контрактами{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1><i class="bi bi-speedometer2"></i> Дашборд</h1>
+            <p class="text-muted">Общий обзор состояния проектов</p>
+        </div>
+    </div>
+
+    <!-- Статистические карточки -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Активные контракты</h6>
+                            <h3>{{ contracts|length }}</h3>
+                        </div>
+                        <div>
+                            <i class="bi bi-file-earmark-text fs-1"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Срочные заказы</h6>
+                            <h3>{{ urgent_orders|length }}</h3>
+                        </div>
+                        <div>
+                            <i class="bi bi-exclamation-triangle fs-1"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Активные командировки</h6>
+                            <h3>{{ active_trips|length }}</h3>
+                        </div>
+                        <div>
+                            <i class="bi bi-airplane fs-1"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Дефицит материалов</h6>
+                            <h3>{{ materials_deficit|length }}</h3>
+                        </div>
+                        <div>
+                            <i class="bi bi-exclamation-circle fs-1"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Активные контракты -->
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="bi bi-file-earmark-text"></i> Активные контракты</h5>
+                </div>
+                <div class="card-body">
+                    {% if contracts %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Номер</th>
+                                        <th>Название</th>
+                                        <th>Заказчик</th>
+                                        <th>Сумма</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for contract in contracts %}
+                                    <tr>
+                                        <td>{{ contract.contract_number }}</td>
+                                        <td>{{ contract.contract_name[:30] }}{% if contract.contract_name|length > 30 %}...{% endif %}</td>
+                                        <td>{{ contract.customer }}</td>
+                                        <td>{{ "{:,.0f}".format(contract.total_amount or 0) }} ₽</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">Нет активных контрактов</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Срочные заказы -->
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="bi bi-exclamation-triangle text-warning"></i> Срочные заказы</h5>
+                </div>
+                <div class="card-body">
+                    {% if urgent_orders %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Номер</th>
+                                        <th>Описание</th>
+                                        <th>Регион</th>
+                                        <th>Срок</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for order in urgent_orders %}
+                                    <tr>
+                                        <td>{{ order.order_number }}</td>
+                                        <td>{{ order.description[:20] }}{% if order.description and order.description|length > 20 %}...{% endif %}</td>
+                                        <td>{{ order.region or '-' }}</td>
+                                        <td>{{ order.planned_end_date.strftime('%d.%m.%Y') if order.planned_end_date else '-' }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">Нет срочных заказов</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <!-- Командировки -->
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="bi bi-airplane"></i> Текущие командировки</h5>
+                </div>
+                <div class="card-body">
+                    {% if active_trips %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Сотрудник</th>
+                                        <th>Направление</th>
+                                        <th>Период</th>
+                                        <th>Статус</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for trip in active_trips %}
+                                    <tr>
+                                        <td>{{ trip.employee.full_name }}</td>
+                                        <td>{{ trip.destination }}</td>
+                                        <td>{{ trip.start_date.strftime('%d.%m') }} - {{ trip.end_date.strftime('%d.%m') }}</td>
+                                        <td>
+                                            {% if trip.status == 'planned' %}
+                                                <span class="badge bg-primary">Планируется</span>
+                                            {% elif trip.status == 'in_progress' %}
+                                                <span class="badge bg-success">В процессе</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">{{ trip.status }}</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">Нет активных командировок</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Дефицит материалов -->
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="bi bi-exclamation-circle text-danger"></i> Дефицит материалов</h5>
+                </div>
+                <div class="card-body">
+                    {% if materials_deficit %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Артикул</th>
+                                        <th>Наименование</th>
+                                        <th>На складе</th>
+                                        <th>Дефицит</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in materials_deficit %}
+                                    <tr>
+                                        <td><code>{{ item.part_number }}</code></td>
+                                        <td>{{ item.name[:20] }}{% if item.name|length > 20 %}...{% endif %}</td>
+                                        <td>{{ item.current_stock }}</td>
+                                        <td><span class="badge bg-danger">{{ item.deficit }}</span></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">Дефицита материалов нет</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Быстрые действия -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="bi bi-lightning"></i> Быстрые действия</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 mb-2">
+                            <a href="{{ url_for('new_contract') }}" class="btn btn-outline-primary w-100">
+                                <i class="bi bi-plus-circle"></i> Новый контракт
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <a href="{{ url_for('new_order') }}" class="btn btn-outline-success w-100">
+                                <i class="bi bi-plus-circle"></i> Новый заказ
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <a href="{{ url_for('materials') }}" class="btn btn-outline-warning w-100">
+                                <i class="bi bi-boxes"></i> Склад
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <a href="{{ url_for('analytics') }}" class="btn btn-outline-info w-100">
+                                <i class="bi bi-graph-up"></i> Отчеты
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
