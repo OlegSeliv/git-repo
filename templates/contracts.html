@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+
+{% block title %}Контракты - Система управления контрактами{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1><i class="bi bi-file-earmark-text"></i> Контракты</h1>
+                    <p class="text-muted">Управление сервисными контрактами</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('new_contract') }}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> Новый контракт
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5>Список контрактов</h5>
+        </div>
+        <div class="card-body">
+            {% if contracts %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Номер</th>
+                                <th>Название</th>
+                                <th>Заказчик</th>
+                                <th>Период</th>
+                                <th>Сумма контракта</th>
+                                <th>Аванс</th>
+                                <th>Статус</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for contract in contracts %}
+                            <tr>
+                                <td><strong>{{ contract.contract_number }}</strong></td>
+                                <td>{{ contract.contract_name }}</td>
+                                <td>{{ contract.customer }}</td>
+                                <td>
+                                    {{ contract.start_date.strftime('%d.%m.%Y') }} - 
+                                    {{ contract.end_date.strftime('%d.%m.%Y') if contract.end_date else 'не указано' }}
+                                </td>
+                                <td class="text-end">
+                                    {% if contract.total_amount %}
+                                        {{ "{:,.0f}".format(contract.total_amount) }} ₽
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    {% if contract.advance_amount %}
+                                        {{ "{:,.0f}".format(contract.advance_amount) }} ₽
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if contract.status == 'active' %}
+                                        <span class="badge bg-success">Активный</span>
+                                    {% elif contract.status == 'completed' %}
+                                        <span class="badge bg-primary">Завершен</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ contract.status }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{{ url_for('orders', contract_id=contract.id) }}" 
+                                           class="btn btn-outline-primary" title="Заказы">
+                                            <i class="bi bi-list-task"></i>
+                                        </a>
+                                        <button class="btn btn-outline-info" 
+                                                onclick="checkBalance({{ contract.id }})" title="Баланс">
+                                            <i class="bi bi-wallet2"></i>
+                                        </button>
+                                        <button class="btn btn-outline-success" title="Редактировать">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-file-earmark-text text-muted" style="font-size: 4rem;"></i>
+                    <h4 class="text-muted mt-3">Контрактов пока нет</h4>
+                    <p class="text-muted">Создайте первый контракт для начала работы</p>
+                    <a href="{{ url_for('new_contract') }}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> Создать контракт
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для баланса -->
+<div class="modal fade" id="balanceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Баланс контракта</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="balanceContent">
+                    <div class="text-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Загрузка...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function checkBalance(contractId) {
+    const modal = new bootstrap.Modal(document.getElementById('balanceModal'));
+    const content = document.getElementById('balanceContent');
+    
+    // Показываем модальное окно
+    modal.show();
+    
+    // Загружаем данные о балансе
+    fetch(`/api/contract_balance/${contractId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                content.innerHTML = `
+                    <div class="alert alert-warning">
+                        ${data.error}
+                    </div>
+                `;
+            } else {
+                content.innerHTML = `
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card text-center">
+                                <div class="card-body">
+                                    <h5 class="card-title text-primary">Общий баланс</h5>
+                                    <h3>${data.balance.toLocaleString()} ₽</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card text-center">
+                                <div class="card-body">
+                                    <h5 class="card-title text-success">Доступно</h5>
+                                    <h3>${data.available.toLocaleString()} ₽</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card text-center">
+                                <div class="card-body">
+                                    <h5 class="card-title text-warning">Зарезервировано</h5>
+                                    <h3>${data.reserved.toLocaleString()} ₽</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            content.innerHTML = `
+                <div class="alert alert-danger">
+                    Ошибка загрузки данных: ${error.message}
+                </div>
+            `;
+        });
+}
+</script>
+{% endblock %}

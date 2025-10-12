@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}Новый контракт - Система управления контрактами{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="bi bi-plus-circle"></i> Создание нового контракта</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="contract_number" class="form-label">Номер контракта *</label>
+                                    <input type="text" class="form-control" id="contract_number" 
+                                           name="contract_number" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="account_code" class="form-label">Код субсчета *</label>
+                                    <input type="text" class="form-control" id="account_code" 
+                                           name="account_code" required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="contract_name" class="form-label">Название контракта *</label>
+                            <input type="text" class="form-control" id="contract_name" 
+                                   name="contract_name" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="customer" class="form-label">Заказчик *</label>
+                            <input type="text" class="form-control" id="customer" 
+                                   name="customer" required>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="start_date" class="form-label">Дата начала *</label>
+                                    <input type="date" class="form-control" id="start_date" 
+                                           name="start_date" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="end_date" class="form-label">Дата окончания</label>
+                                    <input type="date" class="form-control" id="end_date" 
+                                           name="end_date">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="total_amount" class="form-label">Общая сумма (₽)</label>
+                                    <input type="number" class="form-control" id="total_amount" 
+                                           name="total_amount" step="0.01" min="0">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="advance_amount" class="form-label">Сумма аванса (₽)</label>
+                                    <input type="number" class="form-control" id="advance_amount" 
+                                           name="advance_amount" step="0.01" min="0">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="final_amount" class="form-label">Окончательный расчет (₽)</label>
+                                    <input type="number" class="form-control" id="final_amount" 
+                                           name="final_amount" step="0.01" min="0" readonly>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="d-flex justify-content-between">
+                                    <a href="{{ url_for('contracts') }}" class="btn btn-secondary">
+                                        <i class="bi bi-arrow-left"></i> Назад
+                                    </a>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-save"></i> Создать контракт
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Автоматический расчет окончательного расчета
+document.addEventListener('DOMContentLoaded', function() {
+    const totalAmount = document.getElementById('total_amount');
+    const advanceAmount = document.getElementById('advance_amount');
+    const finalAmount = document.getElementById('final_amount');
+    
+    function calculateFinalAmount() {
+        const total = parseFloat(totalAmount.value) || 0;
+        const advance = parseFloat(advanceAmount.value) || 0;
+        const final = total - advance;
+        finalAmount.value = final >= 0 ? final.toFixed(2) : '';
+    }
+    
+    totalAmount.addEventListener('input', calculateFinalAmount);
+    advanceAmount.addEventListener('input', calculateFinalAmount);
+});
+</script>
+{% endblock %}
