@@ -1,0 +1,104 @@
+{
+  "robot_settings": {
+    "base_currency": "USD",
+    "quote_currency": "EUR", 
+    "initial_balance": 10000,
+    "max_risk_per_trade": 0.02,
+    "max_daily_risk": 0.06,
+    "max_positions": 3
+  },
+  
+  "market_resilience": {
+    "regime_detection": {
+      "lookback_period": 50,
+      "volatility_threshold": 0.02,
+      "trend_threshold": 0.015,
+      "update_frequency": "1h"
+    },
+    
+    "adaptive_parameters": {
+      "trending_market": {
+        "entry_threshold": 0.6,
+        "exit_threshold": 0.3,
+        "stop_loss_pct": 0.015,
+        "take_profit_pct": 0.03,
+        "position_size_multiplier": 1.2
+      },
+      "ranging_market": {
+        "entry_threshold": 0.7,
+        "exit_threshold": 0.4,
+        "stop_loss_pct": 0.01,
+        "take_profit_pct": 0.02,
+        "position_size_multiplier": 0.8
+      },
+      "volatile_market": {
+        "entry_threshold": 0.8,
+        "exit_threshold": 0.2,
+        "stop_loss_pct": 0.02,
+        "take_profit_pct": 0.015,
+        "position_size_multiplier": 0.6
+      }
+    }
+  },
+  
+  "timing_optimization": {
+    "preferred_sessions": {
+      "european": {"weight": 0.8, "hours": [9, 17]},
+      "american": {"weight": 0.7, "hours": [16, 1]},
+      "overlap": {"weight": 1.0, "hours": [16, 18]},
+      "asian": {"weight": 0.5, "hours": [0, 9]}
+    },
+    
+    "avoid_periods": {
+      "low_liquidity": [22, 23, 0, 1, 2, 3, 4, 5],
+      "high_news_impact": ["NFP", "FOMC", "CPI"],
+      "weekends": [5, 6],
+      "holidays": ["2024-01-01", "2024-12-25"]
+    },
+    
+    "ml_settings": {
+      "retrain_frequency": "weekly",
+      "min_samples": 100,
+      "features": [
+        "hour", "day_of_week", "month", "session",
+        "economic_impact", "volatility_forecast", "seasonal_score"
+      ]
+    }
+  },
+  
+  "risk_management": {
+    "position_sizing": {
+      "base_size": 0.02,
+      "max_size": 0.05,
+      "volatility_adjustment": true,
+      "confidence_scaling": true
+    },
+    
+    "stop_loss": {
+      "adaptive": true,
+      "atr_multiplier": 2.0,
+      "max_loss_pct": 0.03
+    },
+    
+    "drawdown_protection": {
+      "daily_limit": 0.05,
+      "weekly_limit": 0.15,
+      "monthly_limit": 0.25,
+      "pause_trading": true
+    }
+  },
+  
+  "monitoring": {
+    "performance_tracking": {
+      "log_all_signals": true,
+      "track_market_conditions": true,
+      "calculate_attribution": true
+    },
+    
+    "alerts": {
+      "high_drawdown": 0.1,
+      "unusual_market_conditions": true,
+      "system_errors": true
+    }
+  }
+}
