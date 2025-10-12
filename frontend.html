@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Система управления сервисными контрактами</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+        }
+
+        .stat-card {
+            border-left: 4px solid;
+        }
+
+        .stat-card.blue { border-color: #667eea; }
+        .stat-card.green { border-color: #48bb78; }
+        .stat-card.orange { border-color: #ed8936; }
+        .stat-card.red { border-color: #f56565; }
+
+        .stat-card h3 {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-card .value {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-card .subtext {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .nav-tabs button {
+            padding: 12px 24px;
+            border: none;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+        }
+
+        .nav-tabs button:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-1px);
+        }
+
+        .nav-tabs button.active {
+            background: #667eea;
+            color: white;
+            box-shadow: 0 4px 10px rgba(102, 126, 234, 0.3);
+        }
+
+        .content-section {
+            display: none;
+        }
+
+        .content-section.active {
+            display: block;
+        }
+
+        table {
+            width: 100%;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }
+
+        table th {
+            background: #667eea;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 500;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        table td {
+            padding: 15px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        table tr:last-child td {
+            border-bottom: none;
+        }
+
+        table tr:hover {
+            background: #f9f9ff;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: inline-block;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            box-shadow: 0 4px 10px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-success {
+            background: #48bb78;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #ed8936;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #f56565;
+            color: white;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        .modal-content h2 {
+            margin-bottom: 20px;
+            color: #667eea;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            font-size: 14px;
+            color: #555;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            display: inline-block;
+        }
+
+        .status-active { background: #c6f6d5; color: #22543d; }
+        .status-pending { background: #feebc8; color: #7c2d12; }
+        .status-completed { background: #bee3f8; color: #1a365d; }
+        .status-cancelled { background: #fed7d7; color: #742a2a; }
+
+        .priority-high { color: #f56565; font-weight: bold; }
+        .priority-medium { color: #ed8936; }
+        .priority-low { color: #48bb78; }
+
+        .search-box {
+            width: 100%;
+            padding: 12px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 20px;
+            transition: border-color 0.2s;
+        }
+
+        .search-box:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid;
+        }
+
+        .alert-warning {
+            background: #fffaf0;
+            border-color: #ed8936;
+            color: #7c2d12;
+        }
+
+        .alert-danger {
+            background: #fff5f5;
+            border-color: #f56565;
+            color: #742a2a;
+        }
+
+        .alert-success {
+            background: #f0fff4;
+            border-color: #48bb78;
+            color: #22543d;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state svg {
+            width: 100px;
+            height: 100px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+            
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+            
+            table {
+                font-size: 12px;
+            }
+            
+            table th,
+            table td {
+                padding: 10px;
+            }
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📋 Система управления сервисными контрактами</h1>
+        <p>Комплексное управление заказами, материалами, командировками и документооборотом</p>
+    </div>
+
+    <div class="container">
+        <!-- Дашборд с основной статистикой -->
+        <div id="mainDashboard" class="dashboard">
+            <!-- Будет заполнено через JavaScript -->
+        </div>
+
+        <!-- Навигация -->
+        <div class="nav-tabs">
+            <button onclick="showSection('contracts')" class="active">Контракты</button>
+            <button onclick="showSection('orders')">Заказы</button>
+            <button onclick="showSection('components')">Комплектующие</button>
+            <button onclick="showSection('trips')">Командировки</button>
+            <button onclick="showSection('payments')">Платежи</button>
+            <button onclick="showSection('documents')">Документы</button>
+            <button onclick="showSection('protocols')">Протоколы</button>
+            <button onclick="showSection('analytics')">Аналитика</button>
+        </div>
+
+        <!-- Секция: Контракты -->
+        <div id="contracts" class="content-section active">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2>Контракты</h2>
+                    <button class="btn btn-primary" onclick="openContractModal()">+ Новый контракт</button>
+                </div>
+                <input type="text" class="search-box" placeholder="🔍 Поиск по номеру или заказчику..." id="contractSearch">
+                <div id="contractsList"></div>
+            </div>
+        </div>
+
+        <!-- Секция: Заказы -->
+        <div id="orders" class="content-section">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2>Заказы на выполнение работ</h2>
+                    <button class="btn btn-primary" onclick="openOrderModal()">+ Новый заказ</button>
+                </div>
+                <div id="ordersList"></div>
+            </div>
+        </div>
+
+        <!-- Секция: Комплектующие -->
+        <div id="components" class="content-section">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2>Комплектующие и материалы</h2>
+                    <button class="btn btn-primary" onclick="openComponentModal()">+ Новый компонент</button>
+                </div>
+                
+                <div id="deficitAlert"></div>
+                
+                <div class="nav-tabs" style="margin-bottom: 15px;">
+                    <button onclick="showComponentsView('all')" class="active" id="compViewAll">Все</button>
+                    <button onclick="showComponentsView('deficit')" id="compViewDeficit">Дефицит</button>
+                    <button onclick="showComponentsView('lowstock')" id="compViewLowStock">Низкий остаток</button>
+                </div>
+                
+                <div id="componentsList"></div>
+            </div>
+        </div>
+
+        <!-- Секция: Командировки -->
+        <div id="trips" class="content-section">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2>Командировки</h2>
+                    <button class="btn btn-primary" onclick="openTripModal()">+ Новая командировка</button>
+                </div>
+                
+                <div class="nav-tabs" style="margin-bottom: 15px;">
+                    <button onclick="showTripsView('active')" class="active" id="tripViewActive">Активные</button>
+                    <button onclick="showTripsView('planned')" id="tripViewPlanned">Запланированные</button>
+                    <button onclick="showTripsView('map')" id="tripViewMap">Карта</button>
+                </div>
+                
+                <div id="tripsList"></div>
+            </div>
+        </div>
+
+        <!-- Секция: Платежи -->
+        <div id="payments" class="content-section">
+            <div class="card">
+                <h2 style="margin-bottom: 20px;">Платежи и финансы</h2>
+                <div id="paymentsList"></div>
+            </div>
+        </div>
+
+        <!-- Секция: Документы -->
+        <div id="documents" class="content-section">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2>Документы</h2>
+                    <button class="btn btn-primary" onclick="openDocumentModal()">+ Новый документ</button>
+                </div>
+                <div id="documentsList"></div>
+            </div>
+        </div>
+
+        <!-- Секция: Протоколы -->
+        <div id="protocols" class="content-section">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2>Протоколы совещаний</h2>
+                    <button class="btn btn-primary" onclick="openProtocolModal()">+ Новый протокол</button>
+                </div>
+                <div id="protocolsList"></div>
+            </div>
+        </div>
+
+        <!-- Секция: Аналитика -->
+        <div id="analytics" class="content-section">
+            <div class="card">
+                <h2 style="margin-bottom: 20px;">Аналитика и отчеты</h2>
+                <div id="analyticsContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальные окна будут добавляться динамически -->
+
+    <script>
+        // API URL
+        const API_URL = 'http://localhost:8000/api';
+        
+        // Текущие данные
+        let currentContracts = [];
+        let currentOrders = [];
+        let currentComponents = [];
+        
+        // Инициализация
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDashboard();
+            loadContracts();
+        });
+        
+        // Показать секцию
+        function showSection(section) {
+            document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav-tabs button').forEach(b => b.classList.remove('active'));
+            
+            document.getElementById(section).classList.add('active');
+            event.target.classList.add('active');
+            
+            // Загрузить данные для секции
+            switch(section) {
+                case 'contracts':
+                    loadContracts();
+                    break;
+                case 'orders':
+                    loadOrders();
+                    break;
+                case 'components':
+                    loadComponents();
+                    break;
+                case 'trips':
+                    loadTrips();
+                    break;
+                case 'payments':
+                    loadPayments();
+                    break;
+                case 'documents':
+                    loadDocuments();
+                    break;
+                case 'protocols':
+                    loadProtocols();
+                    break;
+                case 'analytics':
+                    loadAnalytics();
+                    break;
+            }
+        }
+        
+        // Загрузить дашборд
+        async function loadDashboard() {
+            const dashboard = document.getElementById('mainDashboard');
+            dashboard.innerHTML = '<div class="loading"><div class="spinner"></div>Загрузка данных...</div>';
+            
+            try {
+                const response = await fetch(`${API_URL}/analytics/overview`);
+                const data = await response.json();
+                
+                dashboard.innerHTML = `
+                    <div class="card stat-card blue">
+                        <h3>Активные контракты</h3>
+                        <div class="value">${data.contracts_by_status.find(c => c.status === 'active')?.count || 0}</div>
+                        <div class="subtext">В работе</div>
+                    </div>
+                    <div class="card stat-card green">
+                        <h3>Выполнено заказов</h3>
+                        <div class="value">${data.orders_by_status.find(o => o.status === 'completed')?.count || 0}</div>
+                        <div class="subtext">Завершено успешно</div>
+                    </div>
+                    <div class="card stat-card orange">
+                        <h3>Активных командировок</h3>
+                        <div class="value">${data.trips_by_status.find(t => t.status === 'active')?.count || 0}</div>
+                        <div class="subtext">Сотрудники в поездках</div>
+                    </div>
+                    <div class="card stat-card red">
+                        <h3>Бюджет</h3>
+                        <div class="value">${formatMoney(data.financial.total_budget)}</div>
+                        <div class="subtext">Оплачено: ${formatMoney(data.financial.total_paid)}</div>
+                    </div>
+                `;
+            } catch (error) {
+                dashboard.innerHTML = '<div class="alert alert-danger">Ошибка загрузки данных</div>';
+            }
+        }
+        
+        // Загрузить контракты
+        async function loadContracts() {
+            const list = document.getElementById('contractsList');
+            list.innerHTML = '<div class="loading"><div class="spinner"></div>Загрузка...</div>';
+            
+            try {
+                const response = await fetch(`${API_URL}/contracts`);
+                currentContracts = await response.json();
+                
+                if (currentContracts.length === 0) {
+                    list.innerHTML = '<div class="empty-state">Нет контрактов</div>';
+                    return;
+                }
+                
+                const table = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Номер</th>
+                                <th>Заказчик</th>
+                                <th>Сумма</th>
+                                <th>Период</th>
+                                <th>Статус</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${currentContracts.map(c => `
+                                <tr>
+                                    <td><strong>${c.contract_number}</strong></td>
+                                    <td>${c.customer}</td>
+                                    <td>${formatMoney(c.total_amount)}</td>
+                                    <td>${formatDate(c.start_date)} - ${formatDate(c.end_date)}</td>
+                                    <td><span class="status-badge status-${c.status}">${getStatusText(c.status)}</span></td>
+                                    <td>
+                                        <button class="btn btn-primary btn-small" onclick="viewContract(${c.id})">Просмотр</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+                list.innerHTML = table;
+            } catch (error) {
+                list.innerHTML = '<div class="alert alert-danger">Ошибка загрузки контрактов</div>';
+            }
+        }
+        
+        // Загрузить заказы
+        async function loadOrders() {
+            const list = document.getElementById('ordersList');
+            list.innerHTML = '<div class="loading"><div class="spinner"></div>Загрузка...</div>';
+            
+            try {
+                const response = await fetch(`${API_URL}/work-orders`);
+                currentOrders = await response.json();
+                
+                if (currentOrders.length === 0) {
+                    list.innerHTML = '<div class="empty-state">Нет заказов</div>';
+                    return;
+                }
+                
+                const table = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Номер</th>
+                                <th>Устройство</th>
+                                <th>Местоположение</th>
+                                <th>Срок</th>
+                                <th>Статус</th>
+                                <th>Приоритет</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${currentOrders.map(o => `
+                                <tr>
+                                    <td><strong>${o.order_number}</strong></td>
+                                    <td>${o.device_name}</td>
+                                    <td>${o.device_location || 'На заводе'}</td>
+                                    <td>${o.repair_deadline ? formatDate(o.repair_deadline) : '-'}</td>
+                                    <td><span class="status-badge status-${o.status}">${getStatusText(o.status)}</span></td>
+                                    <td><span class="priority-${getPriorityClass(o.priority)}">${getPriorityText(o.priority)}</span></td>
+                                    <td>
+                                        <button class="btn btn-primary btn-small" onclick="viewOrder(${o.id})">Детали</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+                list.innerHTML = table;
+            } catch (error) {
+                list.innerHTML = '<div class="alert alert-danger">Ошибка загрузки заказов</div>';
+            }
+        }
+        
+        // Загрузить компоненты
+        async function loadComponents(view = 'all') {
+            const list = document.getElementById('componentsList');
+            const deficitAlert = document.getElementById('deficitAlert');
+            list.innerHTML = '<div class="loading"><div class="spinner"></div>Загрузка...</div>';
+            
+            try {
+                let endpoint = `${API_URL}/components`;
+                if (view === 'deficit') {
+                    endpoint = `${API_URL}/components/deficit`;
+                }
+                
+                const response = await fetch(endpoint);
+                currentComponents = await response.json();
+                
+                // Проверка на дефицит
+                if (view === 'all') {
+                    const deficitResp = await fetch(`${API_URL}/components/deficit`);
+                    const deficitData = await deficitResp.json();
+                    
+                    if (deficitData.length > 0) {
+                        deficitAlert.innerHTML = `
+                            <div class="alert alert-warning">
+                                <strong>⚠️ Внимание!</strong> Обнаружен дефицит ${deficitData.length} компонентов. 
+                                Возможен срыв сроков контракта!
+                            </div>
+                        `;
+                    } else {
+                        deficitAlert.innerHTML = '';
+                    }
+                }
+                
+                if (currentComponents.length === 0) {
+                    list.innerHTML = '<div class="empty-state">Нет данных</div>';
+                    return;
+                }
+                
+                const table = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Код</th>
+                                <th>Наименование</th>
+                                <th>Остаток на складе</th>
+                                <th>Цена за ед.</th>
+                                ${view === 'deficit' ? '<th>Требуется</th><th>Дефицит</th>' : ''}
+                                <th>Ед. изм.</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${currentComponents.map(c => `
+                                <tr>
+                                    <td><strong>${c.component_code}</strong></td>
+                                    <td>${c.component_name}</td>
+                                    <td>${c.warehouse_stock || 0}</td>
+                                    <td>${c.unit_price ? formatMoney(c.unit_price) : '-'}</td>
+                                    ${view === 'deficit' ? `
+                                        <td>${c.total_required || 0}</td>
+                                        <td class="priority-high">${c.deficit || 0}</td>
+                                    ` : ''}
+                                    <td>${c.unit_of_measure}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+                list.innerHTML = table;
+            } catch (error) {
+                list.innerHTML = '<div class="alert alert-danger">Ошибка загрузки компонентов</div>';
+            }
+        }
+        
+        function showComponentsView(view) {
+            document.querySelectorAll('#components .nav-tabs button').forEach(b => b.classList.remove('active'));
+            document.getElementById(`compView${view.charAt(0).toUpperCase() + view.slice(1)}`).classList.add('active');
+            loadComponents(view);
+        }
+        
+        // Загрузить командировки
+        async function loadTrips(status = 'active') {
+            const list = document.getElementById('tripsList');
+            list.innerHTML = '<div class="loading"><div class="spinner"></div>Загрузка...</div>';
+            
+            try {
+                const response = await fetch(`${API_URL}/business-trips?status=${status}`);
+                const trips = await response.json();
+                
+                if (trips.length === 0) {
+                    list.innerHTML = '<div class="empty-state">Нет командировок</div>';
+                    return;
+                }
+                
+                const table = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Сотрудник</th>
+                                <th>Направление</th>
+                                <th>Контракт</th>
+                                <th>Период</th>
+                                <th>Продлений</th>
+                                <th>Статус</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${trips.map(t => `
+                                <tr>
+                                    <td><strong>${t.employee_name}</strong></td>
+                                    <td>${t.destination}</td>
+                                    <td>${t.contract_number}</td>
+                                    <td>${formatDate(t.start_date)} - ${formatDate(t.planned_end_date)}</td>
+                                    <td>${t.extension_count}</td>
+                                    <td><span class="status-badge status-${t.status}">${getStatusText(t.status)}</span></td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+                list.innerHTML = table;
+            } catch (error) {
+                list.innerHTML = '<div class="alert alert-danger">Ошибка загрузки командировок</div>';
+            }
+        }
+        
+        function showTripsView(view) {
+            document.querySelectorAll('#trips .nav-tabs button').forEach(b => b.classList.remove('active'));
+            document.getElementById(`tripView${view.charAt(0).toUpperCase() + view.slice(1)}`).classList.add('active');
+            
+            if (view === 'map') {
+                loadTripsMap();
+            } else {
+                loadTrips(view);
+            }
+        }
+        
+        async function loadTripsMap() {
+            const list = document.getElementById('tripsList');
+            list.innerHTML = '<div class="loading"><div class="spinner"></div>Загрузка...</div>';
+            
+            try {
+                const response = await fetch(`${API_URL}/business-trips/map`);
+                const trips = await response.json();
+                
+                // Группировка по местоположению
+                const grouped = {};
+                trips.forEach(t => {
+                    if (!grouped[t.destination]) {
+                        grouped[t.destination] = [];
+                    }
+                    grouped[t.destination].push(t);
+                });
+                
+                let html = '<div style="display: grid; gap: 15px;">';
+                for (const [location, tripList] of Object.entries(grouped)) {
+                    html += `
+                        <div class="card" style="background: #f9f9ff;">
+                            <h3 style="margin-bottom: 15px; color: #667eea;">📍 ${location}</h3>
+                            ${tripList.map(t => `
+                                <div style="padding: 10px; background: white; border-radius: 6px; margin-bottom: 10px;">
+                                    <strong>${t.full_name}</strong> 
+                                    <br><small>${formatDate(t.start_date)} - ${formatDate(t.planned_end_date)}</small>
+                                    <br><small>Контракт: ${t.contract_number}</small>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                }
+                html += '</div>';
+                list.innerHTML = html;
+            } catch (error) {
+                list.innerHTML = '<div class="alert alert-danger">Ошибка загрузки карты</div>';
+            }
+        }
+        
+        // Загрузить платежи
+        async function loadPayments() {
+            const list = document.getElementById('paymentsList');
+            list.innerHTML = '<div class="loading"><div class="spinner"></div>Загрузка...</div>';
+            
+            try {
+                const response = await fetch(`${API_URL}/payments`);
+                const payments = await response.json();
+                
+                if (payments.length === 0) {
+                    list.innerHTML = '<div class="empty-state">Нет платежей</div>';
+                    return;
+                }
+                
+                const table = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Контракт ID</th>
+                                <th>Тип</th>
+                                <th>Этап</th>
+                                <th>Сумма</th>
+                                <th>Дата</th>
+                                <th>Статус</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${payments.map(p => `
+                                <tr>
+                                    <td>${p.contract_id}</td>
+                                    <td>${p.payment_type}</td>
+                                    <td>${p.payment_stage}</td>
+                                    <td><strong>${formatMoney(p.amount)}</strong></td>
+                                    <td>${p.payment_date ? formatDate(p.payment_date) : 'Ожидается'}</td>
+                                    <td><span class="status-badge status-${p.status}">${getStatusText(p.status)}</span></td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+                list.innerHTML = table;
+            } catch (error) {
+                list.innerHTML = '<div class="alert alert-danger">Ошибка загрузки платежей</div>';
+            }
+        }
+        
+        // Загрузить документы
+        async function loadDocuments() {
+            const list = document.getElementById('documentsList');
+            list.innerHTML = '<div class="loading"><div class="spinner"></div>Загрузка...</div>';
+            
+            try {
+                const response = await fetch(`${API_URL}/documents`);
+                const docs = await response.json();
+                
+                if (docs.length === 0) {
+                    list.innerHTML = '<div class="empty-state">Нет документов</div>';
+                    return;
+                }
+                
+                const table = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Тип</th>
+                                <th>Название</th>
+                                <th>Дата создания</th>
+                                <th>Место хранения</th>
+                                <th>Скан</th>
+                                <th>Статус</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${docs.map(d => `
+                                <tr>
+                                    <td>${d.document_type}</td>
+                                    <td><strong>${d.title}</strong></td>
+                                    <td>${formatDate(d.created_date)}</td>
+                                    <td>${d.paper_storage_location || '-'}</td>
+                                    <td>${d.scan_path ? '✅ Есть' : '❌ Нет'}</td>
+                                    <td><span class="status-badge status-${d.status}">${getStatusText(d.status)}</span></td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+                list.innerHTML = table;
+            } catch (error) {
+                list.innerHTML = '<div class="alert alert-danger">Ошибка загрузки документов</div>';
+            }
+        }
+        
+        // Загрузить протоколы
+        async function loadProtocols() {
+            const list = document.getElementById('protocolsList');
+            list.innerHTML = '<div class="loading"><div class="spinner"></div>Загрузка...</div>';
+            
+            try {
+                const response = await fetch(`${API_URL}/meeting-protocols`);
+                const protocols = await response.json();
+                
+                if (protocols.length === 0) {
+                    list.innerHTML = '<div class="empty-state">Нет протоколов</div>';
+                    return;
+                }
+                
+                const table = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Дата</th>
+                                <th>Тип</th>
+                                <th>Участники</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${protocols.map(p => `
+                                <tr>
+                                    <td>${formatDate(p.meeting_date)}</td>
+                                    <td>${p.meeting_type || 'Общее'}</td>
+                                    <td>${p.participants}</td>
+                                    <td>
+                                        <button class="btn btn-primary btn-small" onclick="viewProtocol(${p.id})">Просмотр</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+                list.innerHTML = table;
+            } catch (error) {
+                list.innerHTML = '<div class="alert alert-danger">Ошибка загрузки протоколов</div>';
+            }
+        }
+        
+        // Загрузить аналитику
+        async function loadAnalytics() {
+            const content = document.getElementById('analyticsContent');
+            content.innerHTML = '<div class="loading"><div class="spinner"></div>Загрузка...</div>';
+            
+            try {
+                const response = await fetch(`${API_URL}/analytics/overview`);
+                const data = await response.json();
+                
+                content.innerHTML = `
+                    <h3>Общая статистика</h3>
+                    <div class="dashboard" style="margin-top: 20px;">
+                        <div class="card">
+                            <h4>Контракты</h4>
+                            ${data.contracts_by_status.map(c => `
+                                <p>${getStatusText(c.status)}: ${c.count}</p>
+                            `).join('')}
+                        </div>
+                        <div class="card">
+                            <h4>Заказы</h4>
+                            ${data.orders_by_status.map(o => `
+                                <p>${getStatusText(o.status)}: ${o.count}</p>
+                            `).join('')}
+                        </div>
+                        <div class="card">
+                            <h4>Командировки</h4>
+                            ${data.trips_by_status.map(t => `
+                                <p>${getStatusText(t.status)}: ${t.count}</p>
+                            `).join('')}
+                        </div>
+                        <div class="card">
+                            <h4>Финансы</h4>
+                            <p>Бюджет: ${formatMoney(data.financial.total_budget)}</p>
+                            <p>Оплачено: ${formatMoney(data.financial.total_paid)}</p>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                content.innerHTML = '<div class="alert alert-danger">Ошибка загрузки аналитики</div>';
+            }
+        }
+        
+        // Вспомогательные функции
+        function formatMoney(amount) {
+            if (!amount) return '0 ₽';
+            return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(amount);
+        }
+        
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('ru-RU');
+        }
+        
+        function getStatusText(status) {
+            const statuses = {
+                'active': 'Активный',
+                'pending': 'Ожидает',
+                'completed': 'Завершен',
+                'cancelled': 'Отменен',
+                'new': 'Новый',
+                'in_progress': 'В работе',
+                'planned': 'Запланировано',
+                'draft': 'Черновик'
+            };
+            return statuses[status] || status;
+        }
+        
+        function getPriorityText(priority) {
+            const priorities = {
+                0: 'Обычный',
+                1: 'Средний',
+                2: 'Высокий',
+                3: 'Критичный'
+            };
+            return priorities[priority] || 'Обычный';
+        }
+        
+        function getPriorityClass(priority) {
+            if (priority >= 2) return 'high';
+            if (priority === 1) return 'medium';
+            return 'low';
+        }
+        
+        // Заглушки для модальных окон (будут реализованы отдельно)
+        function openContractModal() { alert('Функция в разработке'); }
+        function openOrderModal() { alert('Функция в разработке'); }
+        function openComponentModal() { alert('Функция в разработке'); }
+        function openTripModal() { alert('Функция в разработке'); }
+        function openDocumentModal() { alert('Функция в разработке'); }
+        function openProtocolModal() { alert('Функция в разработке'); }
+        function viewContract(id) { alert('Просмотр контракта ' + id); }
+        function viewOrder(id) { alert('Просмотр заказа ' + id); }
+        function viewProtocol(id) { alert('Просмотр протокола ' + id); }
+    </script>
+</body>
+</html>
