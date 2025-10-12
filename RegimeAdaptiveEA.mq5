@@ -446,13 +446,14 @@ int OnInit()
 
    hADX_Regime = iADX(g_symbol, InpRegimeTF, InpADXPeriod);
    hATR_Regime = iATR(g_symbol, InpRegimeTF, InpATRPeriod);
-   hBB_Regime  = iBands(g_symbol, InpRegimeTF, InpBBPeriod, 0,  PRICE_CLOSE, InpBBDev);
+   // iBands arguments: (symbol, timeframe, ma_period, ma_shift, deviation, applied_price)
+   hBB_Regime  = iBands(g_symbol, InpRegimeTF, InpBBPeriod, 0,  InpBBDev, PRICE_CLOSE);
 
    hATR_Signal = iATR(g_symbol, InpSignalTF, InpATRPeriod);
    hEMA_Fast   = iMA(g_symbol, InpSignalTF, InpFastMAPeriod, 0, MODE_EMA, PRICE_CLOSE);
    hEMA_Slow   = iMA(g_symbol, InpSignalTF, InpSlowMAPeriod, 0, MODE_EMA, PRICE_CLOSE);
    hRSI_Signal = iRSI(g_symbol, InpSignalTF, InpRSIPeriod, PRICE_CLOSE);
-   hBB_Signal  = iBands(g_symbol, InpSignalTF, InpBBPeriod, 0, PRICE_CLOSE, InpBBDev);
+   hBB_Signal  = iBands(g_symbol, InpSignalTF, InpBBPeriod, 0, InpBBDev, PRICE_CLOSE);
 
    bool ok = true;
    ok = ok && EnsureIndicatorsReady(hADX_Regime, "ADX(Regime)");
