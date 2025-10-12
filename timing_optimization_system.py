@@ -142,7 +142,7 @@ class VolatilityPatternAnalyzer:
     def analyze_hourly_patterns(self, price_data: pd.DataFrame) -> Dict[int, Dict]:
         """Анализирует паттерны по часам"""
         # Группируем данные по часам
-        price_data['hour'] = price_data['timestamp'].dt.hour
+        price_data['hour'] = price_data.index.hour
         price_data['returns'] = price_data['close'].pct_change()
         
         hourly_stats = {}
