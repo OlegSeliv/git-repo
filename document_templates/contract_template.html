@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Контракт на сервисное обслуживание</title>
+    <style>
+        body {
+            font-family: 'Times New Roman', serif;
+            font-size: 12pt;
+            line-height: 1.5;
+            margin: 0;
+            padding: 20px;
+            color: #000;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 16pt;
+            font-weight: bold;
+            margin: 0 0 10px 0;
+            text-transform: uppercase;
+        }
+        
+        .header h2 {
+            font-size: 14pt;
+            font-weight: bold;
+            margin: 0;
+        }
+        
+        .contract-info {
+            margin-bottom: 20px;
+        }
+        
+        .contract-info table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .contract-info td {
+            padding: 5px;
+            vertical-align: top;
+        }
+        
+        .contract-info .label {
+            font-weight: bold;
+            width: 30%;
+        }
+        
+        .parties {
+            margin-bottom: 20px;
+        }
+        
+        .party {
+            margin-bottom: 15px;
+        }
+        
+        .party h3 {
+            font-size: 12pt;
+            font-weight: bold;
+            margin: 0 0 5px 0;
+        }
+        
+        .content {
+            margin-bottom: 20px;
+        }
+        
+        .content p {
+            margin: 0 0 10px 0;
+            text-align: justify;
+        }
+        
+        .signatures {
+            margin-top: 40px;
+        }
+        
+        .signature-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .signature-table td {
+            padding: 10px;
+            vertical-align: top;
+            width: 50%;
+        }
+        
+        .signature-line {
+            border-bottom: 1px solid #000;
+            height: 40px;
+            margin-top: 20px;
+        }
+        
+        .page-break {
+            page-break-before: always;
+        }
+        
+        @media print {
+            body {
+                margin: 0;
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Контракт на сервисное обслуживание</h1>
+        <h2>№ {{CONTRACT_NUMBER}}</h2>
+    </div>
+
+    <div class="contract-info">
+        <table>
+            <tr>
+                <td class="label">Дата заключения:</td>
+                <td>{{CONTRACT_DATE}}</td>
+            </tr>
+            <tr>
+                <td class="label">Срок действия:</td>
+                <td>с {{START_DATE}} по {{END_DATE}}</td>
+            </tr>
+            <tr>
+                <td class="label">Общая стоимость:</td>
+                <td>{{TOTAL_AMOUNT}} руб.</td>
+            </tr>
+            <tr>
+                <td class="label">Аванс:</td>
+                <td>{{ADVANCE_AMOUNT}} руб.</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="parties">
+        <div class="party">
+            <h3>ЗАКАЗЧИК:</h3>
+            <p><strong>{{CUSTOMER_NAME}}</strong></p>
+            <p>Контактное лицо: {{CUSTOMER_CONTACT}}</p>
+        </div>
+        
+        <div class="party">
+            <h3>ИСПОЛНИТЕЛЬ:</h3>
+            <p><strong>{{COMPANY_NAME}}</strong></p>
+            <p>Адрес: {{COMPANY_ADDRESS}}</p>
+        </div>
+    </div>
+
+    <div class="content">
+        <h3>1. ПРЕДМЕТ ДОГОВОРА</h3>
+        <p>Исполнитель обязуется выполнить сервисное обслуживание оборудования Заказчика в соответствии с техническими требованиями, а Заказчик обязуется принять и оплатить выполненные работы.</p>
+
+        <h3>2. ОБЯЗАННОСТИ СТОРОН</h3>
+        <p><strong>2.1. Исполнитель обязуется:</strong></p>
+        <p>2.1.1. Выполнить сервисное обслуживание в полном объеме и в установленные сроки;</p>
+        <p>2.1.2. Обеспечить качество выполняемых работ в соответствии с техническими требованиями;</p>
+        <p>2.1.3. Предоставить необходимые материалы и комплектующие;</p>
+        <p>2.1.4. Обеспечить соблюдение техники безопасности при выполнении работ.</p>
+
+        <p><strong>2.2. Заказчик обязуется:</strong></p>
+        <p>2.2.1. Предоставить доступ к оборудованию для выполнения работ;</p>
+        <p>2.2.2. Своевременно производить оплату в соответствии с условиями договора;</p>
+        <p>2.2.3. Обеспечить необходимые условия для выполнения работ.</p>
+
+        <h3>3. ПОРЯДОК РАСЧЕТОВ</h3>
+        <p>3.1. Заказчик производит предоплату в размере {{ADVANCE_AMOUNT}} руб. в течение 5 банковских дней с момента подписания договора.</p>
+        <p>3.2. Окончательный расчет производится в течение 10 банковских дней после подписания акта сдачи-приемки выполненных работ.</p>
+        <p>3.3. В случае превышения сметной стоимости работ более чем на 10%, Исполнитель обязан уведомить Заказчика и получить письменное согласие на дополнительные расходы.</p>
+
+        <h3>4. СРОКИ ВЫПОЛНЕНИЯ РАБОТ</h3>
+        <p>4.1. Работы должны быть выполнены в срок до {{END_DATE}}.</p>
+        <p>4.2. В случае задержки выполнения работ по вине Исполнителя, Заказчик вправе требовать уплаты неустойки в размере 0.1% от стоимости договора за каждый день просрочки.</p>
+
+        <h3>5. ОТВЕТСТВЕННОСТЬ СТОРОН</h3>
+        <p>5.1. За неисполнение или ненадлежащее исполнение обязательств по настоящему договору стороны несут ответственность в соответствии с действующим законодательством РФ.</p>
+        <p>5.2. Исполнитель несет ответственность за качество выполненных работ в течение гарантийного срока 12 месяцев.</p>
+
+        <h3>6. ЗАКЛЮЧИТЕЛЬНЫЕ ПОЛОЖЕНИЯ</h3>
+        <p>6.1. Настоящий договор вступает в силу с момента подписания и действует до полного исполнения сторонами своих обязательств.</p>
+        <p>6.2. Все споры и разногласия решаются путем переговоров, а при невозможности достижения согласия - в судебном порядке.</p>
+        <p>6.3. Настоящий договор составлен в двух экземплярах, имеющих одинаковую юридическую силу, по одному для каждой из сторон.</p>
+    </div>
+
+    <div class="signatures">
+        <table class="signature-table">
+            <tr>
+                <td>
+                    <p><strong>ЗАКАЗЧИК:</strong></p>
+                    <div class="signature-line"></div>
+                    <p style="text-align: center; margin-top: 5px;">(подпись)</p>
+                    <p style="text-align: center; margin-top: 20px;">{{CUSTOMER_SIGNATURE}}</p>
+                </td>
+                <td>
+                    <p><strong>ИСПОЛНИТЕЛЬ:</strong></p>
+                    <div class="signature-line"></div>
+                    <p style="text-align: center; margin-top: 5px;">(подпись)</p>
+                    <p style="text-align: center; margin-top: 20px;">{{COMPANY_SIGNATURE}}</p>
+                </td>
+            </tr>
+        </table>
+    </div>
+</body>
+</html>
