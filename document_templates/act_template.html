@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Акт сдачи-приемки выполненных работ</title>
+    <style>
+        body {
+            font-family: 'Times New Roman', serif;
+            font-size: 12pt;
+            line-height: 1.5;
+            margin: 0;
+            padding: 20px;
+            color: #000;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 16pt;
+            font-weight: bold;
+            margin: 0 0 10px 0;
+            text-transform: uppercase;
+        }
+        
+        .header h2 {
+            font-size: 14pt;
+            font-weight: bold;
+            margin: 0;
+        }
+        
+        .act-info {
+            margin-bottom: 20px;
+        }
+        
+        .act-info table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .act-info td {
+            padding: 5px;
+            vertical-align: top;
+        }
+        
+        .act-info .label {
+            font-weight: bold;
+            width: 30%;
+        }
+        
+        .parties {
+            margin-bottom: 20px;
+        }
+        
+        .party {
+            margin-bottom: 15px;
+        }
+        
+        .party h3 {
+            font-size: 12pt;
+            font-weight: bold;
+            margin: 0 0 5px 0;
+        }
+        
+        .content {
+            margin-bottom: 20px;
+        }
+        
+        .content p {
+            margin: 0 0 10px 0;
+            text-align: justify;
+        }
+        
+        .work-list {
+            margin: 20px 0;
+        }
+        
+        .work-list table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid #000;
+        }
+        
+        .work-list th,
+        .work-list td {
+            border: 1px solid #000;
+            padding: 8px;
+            text-align: left;
+        }
+        
+        .work-list th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+        }
+        
+        .work-list .number {
+            width: 5%;
+            text-align: center;
+        }
+        
+        .work-list .description {
+            width: 60%;
+        }
+        
+        .work-list .unit {
+            width: 10%;
+            text-align: center;
+        }
+        
+        .work-list .quantity {
+            width: 10%;
+            text-align: center;
+        }
+        
+        .work-list .price {
+            width: 15%;
+            text-align: right;
+        }
+        
+        .total {
+            margin-top: 20px;
+            text-align: right;
+            font-weight: bold;
+            font-size: 14pt;
+        }
+        
+        .signatures {
+            margin-top: 40px;
+        }
+        
+        .signature-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .signature-table td {
+            padding: 10px;
+            vertical-align: top;
+            width: 50%;
+        }
+        
+        .signature-line {
+            border-bottom: 1px solid #000;
+            height: 40px;
+            margin-top: 20px;
+        }
+        
+        @media print {
+            body {
+                margin: 0;
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Акт сдачи-приемки выполненных работ</h1>
+        <h2>№ {{ACT_NUMBER}}</h2>
+    </div>
+
+    <div class="act-info">
+        <table>
+            <tr>
+                <td class="label">Дата составления:</td>
+                <td>{{ACT_DATE}}</td>
+            </tr>
+            <tr>
+                <td class="label">Контракт:</td>
+                <td>№ {{CONTRACT_NUMBER}} от {{CONTRACT_DATE}}</td>
+            </tr>
+            <tr>
+                <td class="label">Заказ:</td>
+                <td>№ {{ORDER_NUMBER}} от {{ORDER_DATE}}</td>
+            </tr>
+            <tr>
+                <td class="label">Место выполнения работ:</td>
+                <td>{{WORK_LOCATION}}</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="parties">
+        <div class="party">
+            <h3>ЗАКАЗЧИК:</h3>
+            <p><strong>{{CUSTOMER_NAME}}</strong></p>
+            <p>Контактное лицо: {{CUSTOMER_CONTACT}}</p>
+        </div>
+        
+        <div class="party">
+            <h3>ИСПОЛНИТЕЛЬ:</h3>
+            <p><strong>{{COMPANY_NAME}}</strong></p>
+            <p>Адрес: {{COMPANY_ADDRESS}}</p>
+        </div>
+    </div>
+
+    <div class="content">
+        <p>Настоящий акт составлен в том, что {{COMPANY_NAME}} (Исполнитель) выполнил(а) следующие работы по сервисному обслуживанию оборудования {{CUSTOMER_NAME}} (Заказчик):</p>
+
+        <div class="work-list">
+            <table>
+                <thead>
+                    <tr>
+                        <th class="number">№</th>
+                        <th class="description">Наименование работ</th>
+                        <th class="unit">Ед. изм.</th>
+                        <th class="quantity">Кол-во</th>
+                        <th class="price">Стоимость, руб.</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{WORK_ITEMS}}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="total">
+            <p>Итого: {{TOTAL_AMOUNT}} руб.</p>
+            <p>НДС (20%): {{VAT_AMOUNT}} руб.</p>
+            <p>Всего к доплате: {{FINAL_AMOUNT}} руб.</p>
+        </div>
+
+        <p><strong>Качество выполненных работ:</strong> {{WORK_QUALITY}}</p>
+        <p><strong>Срок выполнения работ:</strong> с {{WORK_START_DATE}} по {{WORK_END_DATE}}</p>
+        <p><strong>Гарантийный срок:</strong> {{WARRANTY_PERIOD}} месяцев</p>
+
+        <p>Работы выполнены в полном объеме, в установленные сроки, с надлежащим качеством. Заказчик претензий по объему, качеству и срокам выполнения работ не имеет.</p>
+    </div>
+
+    <div class="signatures">
+        <table class="signature-table">
+            <tr>
+                <td>
+                    <p><strong>ЗАКАЗЧИК:</strong></p>
+                    <div class="signature-line"></div>
+                    <p style="text-align: center; margin-top: 5px;">(подпись)</p>
+                    <p style="text-align: center; margin-top: 20px;">{{CUSTOMER_SIGNATURE}}</p>
+                </td>
+                <td>
+                    <p><strong>ИСПОЛНИТЕЛЬ:</strong></p>
+                    <div class="signature-line"></div>
+                    <p style="text-align: center; margin-top: 5px;">(подпись)</p>
+                    <p style="text-align: center; margin-top: 20px;">{{COMPANY_SIGNATURE}}</p>
+                </td>
+            </tr>
+        </table>
+    </div>
+</body>
+</html>
