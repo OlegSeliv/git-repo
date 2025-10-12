@@ -1,0 +1,73 @@
+{
+  "timestamp": "2025-10-12T07:10:13.679203",
+  "performance": {
+    "current_balance": 10002.005332480825,
+    "total_pnl": 2.005332480825018,
+    "daily_pnl": 2.0053324808245137,
+    "win_rate": 0.5,
+    "sharpe_ratio": 0.0837438705216789,
+    "max_drawdown": 0.011165482432764589,
+    "current_drawdown": 0.0068300845172131995,
+    "profit_factor": 1.011589899055597,
+    "active_trades": 0,
+    "total_trades": 10
+  },
+  "alerts": [
+    {
+      "id": "alert_0_1760252998",
+      "level": "warning",
+      "message": "Коэффициент Шарпа 0.00 ниже 0.5",
+      "timestamp": "2025-10-12T07:09:58.675845",
+      "acknowledged": false
+    },
+    {
+      "id": "alert_1_1760253003",
+      "level": "warning",
+      "message": "Коэффициент Шарпа -3.08 ниже 0.5",
+      "timestamp": "2025-10-12T07:10:03.676933",
+      "acknowledged": false
+    },
+    {
+      "id": "alert_2_1760253008",
+      "level": "warning",
+      "message": "Коэффициент Шарпа 0.08 ниже 0.5",
+      "timestamp": "2025-10-12T07:10:08.677885",
+      "acknowledged": false
+    }
+  ],
+  "charts": {
+    "balance": [
+      {
+        "timestamp": "2025-10-12T07:09:58.674542",
+        "value": 10000
+      },
+      {
+        "timestamp": "2025-10-12T07:10:03.676531",
+        "value": 9965.531706502114
+      },
+      {
+        "timestamp": "2025-10-12T07:10:08.677535",
+        "value": 10002.005332480825
+      }
+    ],
+    "pnl": [
+      {
+        "timestamp": "2025-10-12T07:09:58.674595",
+        "value": 0
+      },
+      {
+        "timestamp": "2025-10-12T07:10:03.676546",
+        "value": -34.46829349788641
+      },
+      {
+        "timestamp": "2025-10-12T07:10:08.677547",
+        "value": 2.005332480825018
+      }
+    ]
+  },
+  "system": {
+    "uptime": -7.152557373046875e-07,
+    "memory_usage": 0.0,
+    "is_running": false
+  }
+}
