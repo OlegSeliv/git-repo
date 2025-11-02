@@ -117,10 +117,12 @@ int OnCalculate(const int rates_total,
 
    datetime signal_time = time[shift_curr];
 
+   string msg = "";
+
    if(up_sig_raw && allow_up && signal_time != g_lastUpSignalTime)
    {
       g_lastUpSignalTime = signal_time;
-      string msg = StringFormat("%s %s: LogReg UP сигнал на баре %s", _Symbol, EnumToString((ENUM_TIMEFRAMES)_Period), TimeToString(signal_time));
+      msg = StringFormat("%s %s: LogReg UP сигнал на баре %s", _Symbol, EnumToString((ENUM_TIMEFRAMES)_Period), TimeToString(signal_time));
       Alert(msg);
       if(InpUseSound && InpSoundFile != "")
          PlaySound(InpSoundFile);
@@ -129,7 +131,7 @@ int OnCalculate(const int rates_total,
    if(dn_sig_raw && allow_down && signal_time != g_lastDownSignalTime)
    {
       g_lastDownSignalTime = signal_time;
-      string msg = StringFormat("%s %s: LogReg DOWN сигнал на баре %s", _Symbol, EnumToString((ENUM_TIMEFRAMES)_Period), TimeToString(signal_time));
+      msg = StringFormat("%s %s: LogReg DOWN сигнал на баре %s", _Symbol, EnumToString((ENUM_TIMEFRAMES)_Period), TimeToString(signal_time));
       Alert(msg);
       if(InpUseSound && InpSoundFile != "")
          PlaySound(InpSoundFile);
