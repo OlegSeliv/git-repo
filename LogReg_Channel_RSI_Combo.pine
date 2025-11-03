@@ -95,59 +95,13 @@ plotshape(long_signal,  title = "Long Entry",  location = location.absolute, sty
 plotshape(short_signal, title = "Short Entry", location = location.absolute, style = shape.triangledown, color = col2, text = "S", size = size.small, offset = 0)
 
 // Define channel lines with persistent objects
-var line up1 = na
-var line up  = na
-var line base= na
-var line lw  = na
-var line lw1 = na
-var label lbl_t = na
+upper_outer_plot = plot(upper_outer, "Upper Outer", color = color.new(channel_col, 0), linewidth = 2, style = plot.style_linebr)
+upper_inner_plot = plot(upper_inner, "Upper Inner", color = color.new(channel_col, 60), linewidth = 1, style = plot.style_linebr)
+lower_inner_plot = plot(lower_inner, "Lower Inner", color = color.new(channel_col, 60), linewidth = 1, style = plot.style_linebr)
+lower_outer_plot = plot(lower_outer, "Lower Outer", color = color.new(channel_col, 0), linewidth = 2, style = plot.style_linebr)
 
-int bar_start = math.max(bar_index - channel_len, 0)
-
-if na(base) and mid_disp
-    base := line.new(bar_start, start_hist, bar_index, end, style = line.style_dashed)
-else if mid_disp
-    base.set_xy1(bar_start, start_hist)
-    base.set_xy2(bar_index, end)
-    base.set_color(chart.fg_color)
-
-if na(up1)
-    up1 := line.new(bar_start, upper_outer_start, bar_index, upper_outer, width = 3)
-else
-    up1.set_xy1(bar_start, upper_outer_start)
-    up1.set_xy2(bar_index, upper_outer)
-    up1.set_color(channel_col)
-
-if na(up)
-    up := line.new(bar_start, upper_inner_start, bar_index, upper_inner, width = 1)
-else
-    up.set_xy1(bar_start, upper_inner_start)
-    up.set_xy2(bar_index, upper_inner)
-    up.set_color(na)
-
-if na(lw)
-    lw := line.new(bar_start, lower_inner_start, bar_index, lower_inner, width = 1)
-else
-    lw.set_xy1(bar_start, lower_inner_start)
-    lw.set_xy2(bar_index, lower_inner)
-    lw.set_color(na)
-
-if na(lw1)
-    lw1 := line.new(bar_start, lower_outer_start, bar_index, lower_outer, width = 3)
-    lbl_t := label.new(bar_start, lower_outer_start)
-else
-    lw1.set_xy1(bar_start, lower_outer_start)
-    lw1.set_xy2(bar_index, lower_outer)
-    lw1.set_color(channel_col)
-
-    lbl_t.set_xy(bar_start, lower_outer_start)
-    lbl_t.set_text(end > start ? "UP" : "DN")
-    lbl_t.set_style(end < start ? label.style_label_lower_right : label.style_label_upper_right)
-    lbl_t.set_color(channel_col)
-    lbl_t.set_textcolor(#070f23)
-
-linefill.new(lw, lw1, color.new(channel_col, 70))
-linefill.new(up, up1, color.new(channel_col, 70))
+fill(upper_outer_plot, upper_inner_plot, color.new(channel_col, 75))
+fill(lower_inner_plot, lower_outer_plot, color.new(channel_col, 75))
 
 // Alerts
 alertcondition(long_signal,  title = "LogReg RSI Long",  message = "LogReg RSI Combo: Long signal")
