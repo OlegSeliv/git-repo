@@ -84,8 +84,8 @@ p2 = plot(end[3], color = trend_col, display = display.none, editable = false)
 
 fill(p1, p2, fill_band ? trend_col : na)
 
-plot(long_signal  ? close : na, "Long Dot",  color = col1, style = plot.style_circles, linewidth = 4)
-plot(short_signal ? close : na, "Short Dot", color = col2, style = plot.style_circles, linewidth = 4)
+plotshape(long_signal ? close : na,  title = "Long Dot",  location = location.absolute, style = shape.circle, color = col1, size = size.large)
+plotshape(short_signal ? close : na, title = "Short Dot", location = location.absolute, style = shape.circle, color = col2, size = size.large)
 
 // Define channel lines
 upper_outer_plot = plot(upper_outer, "Upper Outer", color = color.new(channel_col, 0), linewidth = 2)
@@ -93,7 +93,7 @@ upper_inner_plot = plot(upper_inner, "Upper Inner", color = color.new(channel_co
 lower_inner_plot = plot(lower_inner, "Lower Inner", color = color.new(channel_col, 60), linewidth = 1)
 lower_outer_plot = plot(lower_outer, "Lower Outer", color = color.new(channel_col, 0), linewidth = 2)
 
-plot(mid_disp ? end : na, "Mid", color = color.new(chart.fg_color, 20), linewidth = 1, style = plot.style_dashed)
+mid_plot = plot(mid_disp ? end : na, "Mid", color = color.new(chart.fg_color, 20), linewidth = 1, style = plot.style_dashed)
 
 fill(upper_outer_plot, upper_inner_plot, color.new(channel_col, 75))
 fill(lower_inner_plot, lower_outer_plot, color.new(channel_col, 75))
