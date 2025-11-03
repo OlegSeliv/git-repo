@@ -52,13 +52,6 @@ float lower_inner  = end - deviation * channel_width
 float upper_outer  = end + deviation * (channel_width + 0.3)
 float lower_outer  = end - deviation * (channel_width + 0.3)
 
-float start_hist = na(start[channel_len]) ? start : start[channel_len]
-float end_hist   = na(end[channel_len]) ? end : end[channel_len]
-float upper_inner_start = na(upper_inner[channel_len]) ? upper_inner : upper_inner[channel_len]
-float lower_inner_start = na(lower_inner[channel_len]) ? lower_inner : lower_inner[channel_len]
-float upper_outer_start = na(upper_outer[channel_len]) ? upper_outer : upper_outer[channel_len]
-float lower_outer_start = na(lower_outer[channel_len]) ? lower_outer : lower_outer[channel_len]
-
 float proximity    = deviation * proximity_mult
 
 bool price_near_lower = close <= lower_inner + proximity and close >= lower_outer - proximity
@@ -82,7 +75,7 @@ bool short_signal = short_signal_raw and (not require_trend_agree or short_trend
 // ???? ????????????????????????????????????????????????????????????????????????????????????????????????????????????{
 color color_up    = color.from_gradient(diff, ta.lowest(diff, 200), ta.highest(diff, 200), na, col1)
 color color_dn    = color.from_gradient(diff, ta.lowest(diff, 200), ta.highest(diff, 200), col2, na)
-color channel_col = end > start ? col1 : col2
+color channel_col = end > end[1] ? col1 : col2
 color trend_col   = end > end[3] ? color_up : color_dn
 color trend_col1  = end > end[3] ? col1 : col2
 
@@ -91,14 +84,16 @@ p2 = plot(end[3], color = trend_col, display = display.none, editable = false)
 
 fill(p1, p2, fill_band ? trend_col : na)
 
-plotshape(long_signal,  title = "Long Entry",  location = location.absolute, style = shape.triangleup,   color = col1, text = "L", size = size.small, offset = 0)
-plotshape(short_signal, title = "Short Entry", location = location.absolute, style = shape.triangledown, color = col2, text = "S", size = size.small, offset = 0)
+plot(long_signal  ? close : na, "Long Dot",  color = col1, style = plot.style_circles, linewidth = 4)
+plot(short_signal ? close : na, "Short Dot", color = col2, style = plot.style_circles, linewidth = 4)
 
-// Define channel lines with persistent objects
-upper_outer_plot = plot(upper_outer, "Upper Outer", color = color.new(channel_col, 0), linewidth = 2, style = plot.style_linebr)
-upper_inner_plot = plot(upper_inner, "Upper Inner", color = color.new(channel_col, 60), linewidth = 1, style = plot.style_linebr)
-lower_inner_plot = plot(lower_inner, "Lower Inner", color = color.new(channel_col, 60), linewidth = 1, style = plot.style_linebr)
-lower_outer_plot = plot(lower_outer, "Lower Outer", color = color.new(channel_col, 0), linewidth = 2, style = plot.style_linebr)
+// Define channel lines
+upper_outer_plot = plot(upper_outer, "Upper Outer", color = color.new(channel_col, 0), linewidth = 2, style = plot.style_line)
+upper_inner_plot = plot(upper_inner, "Upper Inner", color = color.new(channel_col, 60), linewidth = 1, style = plot.style_line)
+lower_inner_plot = plot(lower_inner, "Lower Inner", color = color.new(channel_col, 60), linewidth = 1, style = plot.style_line)
+lower_outer_plot = plot(lower_outer, "Lower Outer", color = color.new(channel_col, 0), linewidth = 2, style = plot.style_line)
+
+mid_plot = mid_disp ? plot(end, "Mid", color = color.new(chart.fg_color, 0), linewidth = 1, style = plot.style_circles) : na
 
 fill(upper_outer_plot, upper_inner_plot, color.new(channel_col, 75))
 fill(lower_inner_plot, lower_outer_plot, color.new(channel_col, 75))
@@ -111,7 +106,7 @@ alertcondition(short_signal, title = "LogReg RSI Short", message = "LogReg RSI C
 if barstate.islast
     dash = table.new(position.top_right, 10, 10, bgcolor = color.new(chart.fg_color, 90), border_color = chart.bg_color, border_width = 5)
     dash.cell(0, 0, "Slope: " + str.tostring(slope * 100, "#,###.###"), text_color = chart.fg_color)
-    dash.cell(0, 1, "Channel: " + (end > start ? "UP" : "DN"), text_color = channel_col)
+    dash.cell(0, 1, "Channel: " + (end > end[1] ? "UP" : "DN"), text_color = channel_col)
     dash.cell(0, 2, "RSI: " + str.tostring(rsi, "#,##0.0"), text_color = rsi >= 50 ? col1 : col2)
     dash.cell(0, 3, "Trend Filter: " + (require_trend_agree ? (diff > 0 ? "Long Bias" : diff < 0 ? "Short Bias" : "Flat") : "OFF"), text_color = chart.fg_color)
 // }
