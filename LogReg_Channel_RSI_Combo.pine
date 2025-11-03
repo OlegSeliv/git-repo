@@ -3,7 +3,7 @@
 // © BigBeluga Ц модификаци€ с RSI-фильтром (GPT-5 Codex)
 
 //@version=6
-indicator("LogReg Channel + RSI Combo", "LogReg RSI Combo", overlay = true)
+indicator("LogReg+RSI Combo", "LogReg RSI Combo", overlay = true)
 
 // ?????? ????????????????????????????????????????????????????????????????????????????????????????????????????????{
 int   length             = input.int(100, "LogReg Lookback")
@@ -52,6 +52,8 @@ float lower_inner  = end - deviation * channel_width
 float upper_outer  = end + deviation * (channel_width + 0.3)
 float lower_outer  = end - deviation * (channel_width + 0.3)
 
+float start_hist = na(start[channel_len]) ? start : start[channel_len]
+float end_hist   = na(end[channel_len]) ? end : end[channel_len]
 float upper_inner_start = na(upper_inner[channel_len]) ? upper_inner : upper_inner[channel_len]
 float lower_inner_start = na(lower_inner[channel_len]) ? lower_inner : lower_inner[channel_len]
 float upper_outer_start = na(upper_outer[channel_len]) ? upper_outer : upper_outer[channel_len]
@@ -89,8 +91,8 @@ p2 = plot(end[3], color = trend_col, display = display.none, editable = false)
 
 fill(p1, p2, fill_band ? trend_col : na)
 
-plotshape(long_signal,  title = "Long Entry",  location = location.absolute, style = shape.triangleup,   color = col1, text = "L", size = size.small, offset = 0, y = close)
-plotshape(short_signal, title = "Short Entry", location = location.absolute, style = shape.triangledown, color = col2, text = "S", size = size.small, offset = 0, y = close)
+plotshape(long_signal,  title = "Long Entry",  location = location.absolute, style = shape.triangleup,   color = col1, text = "L", size = size.small, offset = 0)
+plotshape(short_signal, title = "Short Entry", location = location.absolute, style = shape.triangledown, color = col2, text = "S", size = size.small, offset = 0)
 
 // Define channel lines with persistent objects
 var line up1 = na
@@ -100,43 +102,45 @@ var line lw  = na
 var line lw1 = na
 var label lbl_t = na
 
+int bar_start = math.max(bar_index - channel_len, 0)
+
 if na(base) and mid_disp
-    base := line.new(bar_index[channel_len], start, bar_index, end, style = line.style_dashed)
-else
-    base.set_xy1(bar_index[channel_len], start)
+    base := line.new(bar_start, start_hist, bar_index, end, style = line.style_dashed)
+else if mid_disp
+    base.set_xy1(bar_start, start_hist)
     base.set_xy2(bar_index, end)
     base.set_color(chart.fg_color)
 
 if na(up1)
-    up1 := line.new(bar_index[channel_len], upper_outer_start, bar_index, upper_outer, width = 3)
+    up1 := line.new(bar_start, upper_outer_start, bar_index, upper_outer, width = 3)
 else
-    up1.set_xy1(bar_index[channel_len], upper_outer_start)
+    up1.set_xy1(bar_start, upper_outer_start)
     up1.set_xy2(bar_index, upper_outer)
     up1.set_color(channel_col)
 
 if na(up)
-    up := line.new(bar_index[channel_len], upper_inner_start, bar_index, upper_inner, width = 1)
+    up := line.new(bar_start, upper_inner_start, bar_index, upper_inner, width = 1)
 else
-    up.set_xy1(bar_index[channel_len], upper_inner_start)
+    up.set_xy1(bar_start, upper_inner_start)
     up.set_xy2(bar_index, upper_inner)
     up.set_color(na)
 
 if na(lw)
-    lw := line.new(bar_index[channel_len], lower_inner_start, bar_index, lower_inner, width = 1)
+    lw := line.new(bar_start, lower_inner_start, bar_index, lower_inner, width = 1)
 else
-    lw.set_xy1(bar_index[channel_len], lower_inner_start)
+    lw.set_xy1(bar_start, lower_inner_start)
     lw.set_xy2(bar_index, lower_inner)
     lw.set_color(na)
 
 if na(lw1)
-    lw1 := line.new(bar_index[channel_len], lower_outer_start, bar_index, lower_outer, width = 3)
-    lbl_t := label.new(bar_index[channel_len], lower_outer_start)
+    lw1 := line.new(bar_start, lower_outer_start, bar_index, lower_outer, width = 3)
+    lbl_t := label.new(bar_start, lower_outer_start)
 else
-    lw1.set_xy1(bar_index[channel_len], lower_outer_start)
+    lw1.set_xy1(bar_start, lower_outer_start)
     lw1.set_xy2(bar_index, lower_outer)
     lw1.set_color(channel_col)
 
-    lbl_t.set_xy(bar_index[channel_len], lower_outer_start)
+    lbl_t.set_xy(bar_start, lower_outer_start)
     lbl_t.set_text(end > start ? "UP" : "DN")
     lbl_t.set_style(end < start ? label.style_label_lower_right : label.style_label_upper_right)
     lbl_t.set_color(channel_col)
