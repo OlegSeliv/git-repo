@@ -1,0 +1,159 @@
+// This work is licensed under Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International  
+// https://creativecommons.org/licenses/by-nc-sa/4.0/
+// © BigBeluga Ц модификаци€ с RSI-фильтром (GPT-5 Codex)
+
+//@version=6
+indicator("LogReg Channel + RSI Combo", "LogReg RSI Combo", overlay = true)
+
+// ?????? ????????????????????????????????????????????????????????????????????????????????????????????????????????{
+int   length             = input.int(100, "LogReg Lookback")
+float channel_width      = input.float(1.5, "Channel Width", step = 0.1)
+int   channel_len        = input(100, "Channel Length")
+int   rsi_length         = input.int(14, "RSI Length")
+float proximity_mult     = input.float(0.5, "Proximity (? multiplier)", step = 0.1, minval = 0.0)
+bool  require_trend_agree= input.bool(true, "Filter: LogReg Trend Agreement")
+bool  mid_disp           = input.bool(true, "Mid Line", inline = "s")
+bool  fill_band          = input.bool(true, "Fill Band", inline = "s")
+color col1               = input.color(#21dfac, "", inline = "s1")
+color col2               = input.color(#df216d, "", inline = "s1")
+// }
+
+
+// ??????????????????????????????????????????????????????????????????????????????????????????????????????????{
+f_log_regression(src, length) =>
+    float sumX    = 0.0
+    float sumY    = 0.0
+    float sumXSqr = 0.0
+    float sumXY   = 0.0
+
+    for i = 0 to length - 1
+        val = math.log(src[i])
+        per = i + 1.0
+        sumX    += per
+        sumY    += val
+        sumXSqr += per * per
+        sumXY   += val * per
+
+    slope     = (length * sumXY - sumX * sumY) / (length * sumXSqr - sumX * sumX)
+    average   = sumY / length
+    intercept = average - slope * sumX / length + slope
+
+    [slope, intercept]
+
+[slope, intercept] = f_log_regression(close, length)
+
+float start        = math.exp(intercept + slope * length)
+float end          = math.exp(intercept)
+float diff         = end - end[3]
+float deviation    = ta.stdev(close, length)
+
+float upper_inner  = end + deviation * channel_width
+float lower_inner  = end - deviation * channel_width
+float upper_outer  = end + deviation * (channel_width + 0.3)
+float lower_outer  = end - deviation * (channel_width + 0.3)
+
+float upper_inner_start = na(upper_inner[channel_len]) ? upper_inner : upper_inner[channel_len]
+float lower_inner_start = na(lower_inner[channel_len]) ? lower_inner : lower_inner[channel_len]
+float upper_outer_start = na(upper_outer[channel_len]) ? upper_outer : upper_outer[channel_len]
+float lower_outer_start = na(lower_outer[channel_len]) ? lower_outer : lower_outer[channel_len]
+
+float proximity    = deviation * proximity_mult
+
+bool price_near_lower = close <= lower_inner + proximity and close >= lower_outer - proximity
+bool price_near_upper = close >= upper_inner - proximity and close <= upper_outer + proximity
+
+float rsi = ta.rsi(close, rsi_length)
+bool  rsi_cross_up   = ta.crossover(rsi, 50)
+bool  rsi_cross_down = ta.crossunder(rsi, 50)
+
+bool long_trend_ok  = diff > 0
+bool short_trend_ok = diff < 0
+
+bool long_signal_raw  = barstate.isconfirmed and rsi_cross_up   and price_near_lower
+bool short_signal_raw = barstate.isconfirmed and rsi_cross_down and price_near_upper
+
+bool long_signal  = long_signal_raw  and (not require_trend_agree or long_trend_ok)
+bool short_signal = short_signal_raw and (not require_trend_agree or short_trend_ok)
+// }
+
+
+// ???? ????????????????????????????????????????????????????????????????????????????????????????????????????????????{
+color color_up    = color.from_gradient(diff, ta.lowest(diff, 200), ta.highest(diff, 200), na, col1)
+color color_dn    = color.from_gradient(diff, ta.lowest(diff, 200), ta.highest(diff, 200), col2, na)
+color channel_col = end > start ? col1 : col2
+color trend_col   = end > end[3] ? color_up : color_dn
+color trend_col1  = end > end[3] ? col1 : col2
+
+p1 = plot(end, "Log Regression", color = trend_col1, linewidth = 2)
+p2 = plot(end[3], color = trend_col, display = display.none, editable = false)
+
+fill(p1, p2, fill_band ? trend_col : na)
+
+plotshape(long_signal,  title = "Long Entry",  location = location.absolute, style = shape.triangleup,   color = col1, text = "L", size = size.small, offset = 0, y = close)
+plotshape(short_signal, title = "Short Entry", location = location.absolute, style = shape.triangledown, color = col2, text = "S", size = size.small, offset = 0, y = close)
+
+// Define channel lines with persistent objects
+var line up1 = na
+var line up  = na
+var line base= na
+var line lw  = na
+var line lw1 = na
+var label lbl_t = na
+
+if na(base) and mid_disp
+    base := line.new(bar_index[channel_len], start, bar_index, end, style = line.style_dashed)
+else
+    base.set_xy1(bar_index[channel_len], start)
+    base.set_xy2(bar_index, end)
+    base.set_color(chart.fg_color)
+
+if na(up1)
+    up1 := line.new(bar_index[channel_len], upper_outer_start, bar_index, upper_outer, width = 3)
+else
+    up1.set_xy1(bar_index[channel_len], upper_outer_start)
+    up1.set_xy2(bar_index, upper_outer)
+    up1.set_color(channel_col)
+
+if na(up)
+    up := line.new(bar_index[channel_len], upper_inner_start, bar_index, upper_inner, width = 1)
+else
+    up.set_xy1(bar_index[channel_len], upper_inner_start)
+    up.set_xy2(bar_index, upper_inner)
+    up.set_color(na)
+
+if na(lw)
+    lw := line.new(bar_index[channel_len], lower_inner_start, bar_index, lower_inner, width = 1)
+else
+    lw.set_xy1(bar_index[channel_len], lower_inner_start)
+    lw.set_xy2(bar_index, lower_inner)
+    lw.set_color(na)
+
+if na(lw1)
+    lw1 := line.new(bar_index[channel_len], lower_outer_start, bar_index, lower_outer, width = 3)
+    lbl_t := label.new(bar_index[channel_len], lower_outer_start)
+else
+    lw1.set_xy1(bar_index[channel_len], lower_outer_start)
+    lw1.set_xy2(bar_index, lower_outer)
+    lw1.set_color(channel_col)
+
+    lbl_t.set_xy(bar_index[channel_len], lower_outer_start)
+    lbl_t.set_text(end > start ? "UP" : "DN")
+    lbl_t.set_style(end < start ? label.style_label_lower_right : label.style_label_upper_right)
+    lbl_t.set_color(channel_col)
+    lbl_t.set_textcolor(#070f23)
+
+linefill.new(lw, lw1, color.new(channel_col, 70))
+linefill.new(up, up1, color.new(channel_col, 70))
+
+// Alerts
+alertcondition(long_signal,  title = "LogReg RSI Long",  message = "LogReg RSI Combo: Long signal")
+alertcondition(short_signal, title = "LogReg RSI Short", message = "LogReg RSI Combo: Short signal")
+
+// Info Dash
+if barstate.islast
+    dash = table.new(position.top_right, 10, 10, bgcolor = color.new(chart.fg_color, 90), border_color = chart.bg_color, border_width = 5)
+    dash.cell(0, 0, "Slope: " + str.tostring(slope * 100, "#,###.###"), text_color = chart.fg_color)
+    dash.cell(0, 1, "Channel: " + (end > start ? "UP" : "DN"), text_color = channel_col)
+    dash.cell(0, 2, "RSI: " + str.tostring(rsi, "#,##0.0"), text_color = rsi >= 50 ? col1 : col2)
+    dash.cell(0, 3, "Trend Filter: " + (require_trend_agree ? (diff > 0 ? "Long Bias" : diff < 0 ? "Short Bias" : "Flat") : "OFF"), text_color = chart.fg_color)
+// }
