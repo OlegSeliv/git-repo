@@ -40,8 +40,9 @@ bool CalcLogRegression(const double &price[], int shift, int len, int total, dou
    double sumY = 0.0;
    double sumXSq = 0.0;
    double sumXY = 0.0;
+   int i;
 
-   for(int i = 0; i < len; ++i)
+   for(i = 0; i < len; ++i)
    {
       double val = price[shift + i];
       if(val <= 0.0)
@@ -67,12 +68,12 @@ bool CalcLogRegression(const double &price[], int shift, int len, int total, dou
 
    // Standard deviation of prices (not logs) over the window
    double mean = 0.0;
-   for(int i = 0; i < len; ++i)
+   for(i = 0; i < len; ++i)
       mean += price[shift + i];
    mean /= len;
 
    double variance = 0.0;
-   for(int i = 0; i < len; ++i)
+   for(i = 0; i < len; ++i)
    {
       double diff = price[shift + i] - mean;
       variance += diff * diff;
@@ -90,8 +91,9 @@ double CalcRSI(const double &price[], int shift, int len, int total)
 
    double gain = 0.0;
    double loss = 0.0;
+   int i;
 
-   for(int i = 0; i < len; ++i)
+   for(i = 0; i < len; ++i)
    {
       double diff = price[shift + i] - price[shift + i + 1];
       if(diff > 0.0)
@@ -117,8 +119,9 @@ double CalcStochastic(const double &close[], const double &high[], const double 
 
    double highest = -DBL_MAX;
    double lowest  = DBL_MAX;
+   int i;
 
-   for(int i = 0; i < len; ++i)
+   for(i = 0; i < len; ++i)
    {
       highest = MathMax(highest, high[shift + i]);
       lowest  = MathMin(lowest,  low[shift + i]);
@@ -137,8 +140,9 @@ double CalcMFI(const double &high[], const double &low[], const double &close[],
 
    double posFlow = 0.0;
    double negFlow = 0.0;
+   int i;
 
-   for(int i = 0; i < len; ++i)
+   for(i = 0; i < len; ++i)
    {
       int idx = shift + i;
       double typical     = (high[idx] + low[idx] + close[idx]) / 3.0;
@@ -165,8 +169,9 @@ double CalcStochasticRSI(const double &price[], int shift, int len, int total)
 
    double highest = -DBL_MAX;
    double lowest  = DBL_MAX;
+   int i;
 
-   for(int i = 0; i < len; ++i)
+   for(i = 0; i < len; ++i)
    {
       double rsiVal = CalcRSI(price, shift + i, len, total);
       highest = MathMax(highest, rsiVal);
@@ -202,9 +207,10 @@ double GetOscillatorValue(const double &close[], const double &high[], const dou
 
 void CloseOppositePositions(bool wantBuy)
 {
-   for(int i = PositionsTotal() - 1; i >= 0; --i)
+   int idx;
+   for(idx = PositionsTotal() - 1; idx >= 0; --idx)
    {
-      if(!PositionSelectByIndex(i))
+      if(!PositionSelectByIndex(idx))
          continue;
       if(PositionGetInteger(POSITION_MAGIC) != (long)InpMagic)
          continue;
@@ -219,9 +225,10 @@ void CloseOppositePositions(bool wantBuy)
 
 bool HasPosition(bool wantBuy)
 {
-   for(int i = PositionsTotal() - 1; i >= 0; --i)
+   int idx;
+   for(idx = PositionsTotal() - 1; idx >= 0; --idx)
    {
-      if(!PositionSelectByIndex(i))
+      if(!PositionSelectByIndex(idx))
          continue;
       if(PositionGetInteger(POSITION_MAGIC) != (long)InpMagic)
          continue;
@@ -300,8 +307,9 @@ bool EvaluateSignals(bool &longSignal, bool &shortSignal)
    int smoothLen = MathMax(InpSignalLength, 1);
    double sumCurr = 0.0;
    double sumPrev = 0.0;
+   int i;
 
-   for(int i = 0; i < smoothLen; ++i)
+   for(i = 0; i < smoothLen; ++i)
    {
       double valCurr = GetOscillatorValue(closeArr, highArr, lowArr, volumeArr, copiedClose, 1 + i);
       double valPrev = GetOscillatorValue(closeArr, highArr, lowArr, volumeArr, copiedClose, 2 + i);
