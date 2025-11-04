@@ -123,8 +123,10 @@ double CalcStochastic(const double &close[], const double &high[], const double 
 
    for(i = 0; i < len; ++i)
    {
-      highest = MathMax(highest, high[shift + i]);
-      lowest  = MathMin(lowest,  low[shift + i]);
+      double hh = high[shift + i];
+      double ll = low[shift + i];
+      highest = MathMax(highest, hh);
+      lowest  = MathMin(lowest, ll);
    }
 
    if(MathAbs(highest - lowest) < DBL_EPSILON)
