@@ -1,112 +1,107 @@
-// This work is licensed under Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International  
+// This work is licensed under Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International
 // https://creativecommons.org/licenses/by-nc-sa/4.0/
 // © BigBeluga Ц модификаци€ с RSI-фильтром (GPT-5 Codex)
 
 //@version=6
 indicator("LogReg RSI Combo", "LogReg RSI Combo", overlay = true)
 
-// ?????? ????????????????????????????????????????????????????????????????????????????????????????????????????????{
-int   length             = input.int(100, "LogReg Lookback")
-float channel_width      = input.float(1.5, "Channel Width", step = 0.1)
-int   channel_len        = input(100, "Channel Length")
-int   rsi_length         = input.int(14, "RSI Length")
-float proximity_mult     = input.float(0.5, "Proximity (? multiplier)", step = 0.1, minval = 0.0)
-bool  require_trend_agree= input.bool(true, "Filter: LogReg Trend Agreement")
-bool  mid_disp           = input.bool(true, "Mid Line", inline = "s")
-bool  fill_band          = input.bool(true, "Fill Band", inline = "s")
-color col1               = input.color(#21dfac, "", inline = "s1")
-color col2               = input.color(#df216d, "", inline = "s1")
-// }
+// ?? Inputs ?????????????????????????????????????????????????????????????????????
+// Channel
+int   length             = input.int(150, "LogReg Lookback", group = "Channel")
+float channel_width      = input.float(1.5, "Channel Width", step = 0.1, group = "Channel")
+float proximity_pct      = input.float(5.0, "Boundary Proximity (%)", step = 0.1, minval = 0.0, group = "Channel")
+bool  fill_band          = input.bool(true, "Fill Channel", group = "Channel")
+bool  mid_disp           = input.bool(true, "Mid Line", group = "Channel")
+color col_upper          = input.color(#a7abb9, "Upper Color", group = "Channel")
+color col_lower          = input.color(#a7abb9, "Lower Color", group = "Channel")
+color col_mid            = input.color(color.gray, "Mid Color", group = "Channel")
 
+// Oscillator
+string osc_option        = input.string("RSI", "Oscillator", options = ["RSI", "STOCHASTIC", "STOCHASTIC RSI", "MFI"], group = "Oscillator")
+int    osc_length        = input.int(14, "Length", group = "Oscillator")
+color  osc_color         = input.color(#7e57c2, "Line Color", group = "Oscillator")
+int    overbought        = input.int(70, "Upper Threshold", minval = 51, maxval = 99, group = "Oscillator")
 
-// ??????????????????????????????????????????????????????????????????????????????????????????????????????????{
-f_log_regression(src, length) =>
-    float sumX    = 0.0
-    float sumY    = 0.0
-    float sumXSqr = 0.0
-    float sumXY   = 0.0
+// Signal line
+bool show_signal_line    = input.bool(true, "Show Signal", group = "Signal Line", inline = "sig")
+int  sig_length          = input.int(14, "", inline = "sig")
+color sig_color          = input.color(color.yellow, "", inline = "sig")
 
-    for i = 0 to length - 1
-        val = math.log(src[i])
-        per = i + 1.0
-        sumX    += per
-        sumY    += val
-        sumXSqr += per * per
-        sumXY   += val * per
+// Signals
+bool  require_trend      = input.bool(true, "Require Trend Agreement", group = "Signals")
+color bull_color         = input.color(#21dfac, "Bull Color", group = "Signals")
+color bear_color         = input.color(#df216d, "Bear Color", group = "Signals")
 
-    slope     = (length * sumXY - sumX * sumY) / (length * sumXSqr - sumX * sumX)
-    average   = sumY / length
-    intercept = average - slope * sumX / length + slope
+// ?? Logarithmic regression channel ??????????????????????????????????????????????
+float reg_log = ta.linreg(math.log(close), length, 0)
+float reg_mid = math.exp(reg_log)
+float deviation = ta.stdev(close, length)
+float half_span = deviation * channel_width
 
-    [slope, intercept]
+float upper = reg_mid + half_span
+float lower = reg_mid - half_span
+float channel_range = upper - lower
+float proximity = channel_range * proximity_pct / 100.0
 
-[slope, intercept] = f_log_regression(close, length)
+bool near_lower = close <= lower + proximity
+bool near_upper = close >= upper - proximity
+float trend_slope = reg_mid - reg_mid[1]
 
-float start        = math.exp(intercept + slope * length)
-float end          = math.exp(intercept)
-float diff         = end - end[3]
-float deviation    = ta.stdev(close, length)
+// ?? Oscillator calculations ????????????????????????????????????????????????????
+float rsi_val = ta.rsi(close, osc_length)
+float stoch_val = ta.stoch(high, low, close, osc_length)
 
-float upper_inner  = end + deviation * channel_width
-float lower_inner  = end - deviation * channel_width
-float upper_outer  = end + deviation * (channel_width + 0.3)
-float lower_outer  = end - deviation * (channel_width + 0.3)
+float rsi_high = ta.highest(rsi_val, osc_length)
+float rsi_low  = ta.lowest(rsi_val, osc_length)
+float stoch_rsi_raw = rsi_high == rsi_low ? 50.0 : (rsi_val - rsi_low) / (rsi_high - rsi_low) * 100
+float stoch_rsi = ta.sma(stoch_rsi_raw, 3)
 
-float proximity    = deviation * proximity_mult
+float mfi_val = ta.mfi(high, low, close, volume, osc_length)
 
-bool price_near_lower = close <= lower_inner + proximity and close >= lower_outer - proximity
-bool price_near_upper = close >= upper_inner - proximity and close <= upper_outer + proximity
+float osc_value = switch osc_option
+    "RSI"            => rsi_val
+    "STOCHASTIC"     => stoch_val
+    "STOCHASTIC RSI" => stoch_rsi
+    "MFI"            => mfi_val
 
-float rsi = ta.rsi(close, rsi_length)
-bool  rsi_cross_up   = ta.crossover(rsi, 50)
-bool  rsi_cross_down = ta.crossunder(rsi, 50)
+float osc_signal = ta.sma(osc_value, sig_length)
 
-bool long_trend_ok  = diff > 0
-bool short_trend_ok = diff < 0
+int oversold = 100 - overbought
+float denom = math.max(float(overbought - oversold), 0.0001)
+float scale = channel_range / denom
 
-bool long_signal_raw  = barstate.isconfirmed and rsi_cross_up   and price_near_lower
-bool short_signal_raw = barstate.isconfirmed and rsi_cross_down and price_near_upper
+float osc_scaled = lower + (osc_value - oversold) * scale
+float sig_scaled = lower + (osc_signal - oversold) * scale
 
-bool long_signal  = long_signal_raw  and (not require_trend_agree or long_trend_ok)
-bool short_signal = short_signal_raw and (not require_trend_agree or short_trend_ok)
-// }
+// ?? Signal logic ???????????????????????????????????????????????????????????????
+bool cross_up = ta.crossover(osc_value, 50)
+bool cross_down = ta.crossunder(osc_value, 50)
 
+bool long_signal = barstate.isconfirmed and near_lower and cross_up and (not require_trend or trend_slope > 0)
+bool short_signal = barstate.isconfirmed and near_upper and cross_down and (not require_trend or trend_slope < 0)
 
-// ???? ????????????????????????????????????????????????????????????????????????????????????????????????????????????{
-color color_up    = color.from_gradient(diff, ta.lowest(diff, 200), ta.highest(diff, 200), na, col1)
-color color_dn    = color.from_gradient(diff, ta.lowest(diff, 200), ta.highest(diff, 200), col2, na)
-color channel_col = end > end[1] ? col1 : col2
-color trend_col   = end > end[3] ? color_up : color_dn
-color trend_col1  = end > end[3] ? col1 : col2
+// ?? Plots ??????????????????????????????????????????????????????????????????????
+plot upper_plot = plot(upper, "Upper", color = col_upper, linewidth = 2)
+plot lower_plot = plot(lower, "Lower", color = col_lower, linewidth = 2)
+plot(mid_disp ? reg_mid : na, "Mid", color = col_mid, linewidth = 1, style = plot.style_dashed)
 
-p1 = plot(end, "Log Regression", color = trend_col1, linewidth = 2)
-p2 = plot(end[3], color = trend_col, display = display.none, editable = false)
+if fill_band
+    fill(upper_plot, lower_plot, color.new(osc_color, 85))
 
-fill(p1, p2, fill_band ? trend_col : na)
+plot(osc_scaled, "Oscillator", color = osc_color, linewidth = 2)
+plot(show_signal_line ? sig_scaled : na, "Signal", color = sig_color, linewidth = 1)
 
-plotshape(long_signal ? close : na,  title = "Long Dot",  location = location.absolute, style = shape.circle, color = col1, size = size.large)
-plotshape(short_signal ? close : na, title = "Short Dot", location = location.absolute, style = shape.circle, color = col2, size = size.large)
-
-// Define channel lines
-upper_outer_plot = plot(upper_outer, "Upper Outer", color = color.new(channel_col, 0), linewidth = 2)
-upper_inner_plot = plot(upper_inner, "Upper Inner", color = color.new(channel_col, 60), linewidth = 1)
-lower_inner_plot = plot(lower_inner, "Lower Inner", color = color.new(channel_col, 60), linewidth = 1)
-lower_outer_plot = plot(lower_outer, "Lower Outer", color = color.new(channel_col, 0), linewidth = 2)
-
-mid_plot = plot(mid_disp ? end : na, "Mid", color = color.new(chart.fg_color, 20), linewidth = 1, style = plot.style_dashed)
-
-fill(upper_outer_plot, upper_inner_plot, color.new(channel_col, 75))
-fill(lower_inner_plot, lower_outer_plot, color.new(channel_col, 75))
+plotshape(long_signal,  title = "Long Entry",  location = location.belowbar, style = shape.triangleup,   color = bull_color, size = size.small, text = "BUY")
+plotshape(short_signal, title = "Short Entry", location = location.abovebar, style = shape.triangledown, color = bear_color, size = size.small, text = "SELL")
 
 // Alerts
-alertcondition(long_signal,  title = "LogReg RSI Long",  message = "LogReg RSI Combo: Long signal")
-alertcondition(short_signal, title = "LogReg RSI Short", message = "LogReg RSI Combo: Short signal")
+alertcondition(long_signal,  title = "LogReg Long",  message = "LogReg RSI Combo: Long entry")
+alertcondition(short_signal, title = "LogReg Short", message = "LogReg RSI Combo: Short entry")
 
-// Info Dash
+// ?? Info panel ?????????????????????????????????????????????????????????????????
+var table info = table.new(position.top_right, 1, 4, bgcolor = color.new(color.black, 70), border_width = 1)
 if barstate.islast
-    dash = table.new(position.top_right, 10, 10, bgcolor = color.new(chart.fg_color, 90), border_color = chart.bg_color, border_width = 5)
-    dash.cell(0, 0, "Slope: " + str.tostring(slope * 100, "#,###.###"), text_color = chart.fg_color)
-    dash.cell(0, 1, "Channel: " + (end > end[1] ? "UP" : "DN"), text_color = channel_col)
-    dash.cell(0, 2, "RSI: " + str.tostring(rsi, "#,##0.0"), text_color = rsi >= 50 ? col1 : col2)
-    dash.cell(0, 3, "Trend Filter: " + (require_trend_agree ? (diff > 0 ? "Long Bias" : diff < 0 ? "Short Bias" : "Flat") : "OFF"), text_color = chart.fg_color)
-// }
+    table.cell(info, 0, 0, "Slope: " + str.tostring(trend_slope, "#,##0.#####"), text_color = trend_slope >= 0 ? bull_color : bear_color)
+    table.cell(info, 0, 1, "Proximity: " + str.tostring(proximity_pct, "#.0") + "%", text_color = chart.fg_color)
+    table.cell(info, 0, 2, "Osc: " + osc_option + " = " + str.tostring(osc_value, "#,##0.0"), text_color = osc_color)
+    table.cell(info, 0, 3, "Trend Filter: " + (require_trend ? "ON" : "OFF"), text_color = chart.fg_color)
