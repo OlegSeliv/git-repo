@@ -12,44 +12,38 @@ enum OscillatorType
    OSC_MFI
 };
 
-//--- Inputs
-input double          InpLots             = 0.10;       // Lot size
-input int             InpLength           = 150;        // LogReg lookback
-input double          InpChannelWidth     = 1.5;        // Channel width (stdev multiplier)
-input double          InpProximityPct     = 5.0;        // Boundary proximity (%)
-input OscillatorType  InpOscillator       = OSC_RSI;    // Oscillator selection
-input int             InpOscLength        = 14;         // Oscillator length
-input int             InpSignalLength     = 14;         // Signal smoothing length
-input bool            InpRequireTrend     = true;       // Require trend agreement
-input double          InpStopLossPoints   = 0.0;        // Stop-loss (points)
-input double          InpTakeProfitPoints = 0.0;        // Take-profit (points)
-input uint            InpMagic            = 460015;     // Magic number
-input uint            InpSlippage         = 10;         // Slippage (points)
+input double          InpLots             = 0.10;
+input int             InpLength           = 150;
+input double          InpChannelWidth     = 1.5;
+input double          InpProximityPct     = 5.0;
+input OscillatorType  InpOscillator       = OSC_RSI;
+input int             InpOscLength        = 14;
+input int             InpSignalLength     = 14;
+input bool            InpRequireTrend     = true;
+input double          InpStopLossPoints   = 0.0;
+input double          InpTakeProfitPoints = 0.0;
+input uint            InpMagic            = 460015;
+input uint            InpSlippage         = 10;
 
 CTrade trade;
-
 datetime g_lastBarTime = 0;
 
-//--- Utility functions ---------------------------------------------------------
 bool CalcLogRegression(const double &price[], int shift, int len, int total, double &regMid, double &stdDeviation)
 {
    if(shift + len > total)
       return false;
 
-   double sumX = 0.0;
-   double sumY = 0.0;
-   double sumXSq = 0.0;
-   double sumXY = 0.0;
-   int i;
+   double sumX = 0.0, sumY = 0.0, sumXSq = 0.0, sumXY = 0.0;
+   int idx;
 
-   for(i = 0; i < len; ++i)
+   for(idx = 0; idx < len; ++idx)
    {
-      double val = price[shift + i];
+      double val = price[shift + idx];
       if(val <= 0.0)
          return false;
 
       double logVal = MathLog(val);
-      double per = i + 1.0;
+      double per = idx + 1.0;
 
       sumX   += per;
       sumY   += logVal;
@@ -66,16 +60,15 @@ bool CalcLogRegression(const double &price[], int shift, int len, int total, dou
 
    regMid = MathExp(intercept);
 
-   // Standard deviation of prices (not logs) over the window
    double mean = 0.0;
-   for(i = 0; i < len; ++i)
-      mean += price[shift + i];
+   for(idx = 0; idx < len; ++idx)
+      mean += price[shift + idx];
    mean /= len;
 
    double variance = 0.0;
-   for(i = 0; i < len; ++i)
+   for(idx = 0; idx < len; ++idx)
    {
-      double diff = price[shift + i] - mean;
+      double diff = price[shift + idx] - mean;
       variance += diff * diff;
    }
    variance /= len;
@@ -89,13 +82,12 @@ double CalcRSI(const double &price[], int shift, int len, int total)
    if(shift + len + 1 > total)
       return 50.0;
 
-   double gain = 0.0;
-   double loss = 0.0;
-   int i;
+   double gain = 0.0, loss = 0.0;
+   int idx;
 
-   for(i = 0; i < len; ++i)
+   for(idx = 0; idx < len; ++idx)
    {
-      double diff = price[shift + i] - price[shift + i + 1];
+      double diff = price[shift + idx] - price[shift + idx + 1];
       if(diff > 0.0)
          gain += diff;
       else
@@ -104,7 +96,6 @@ double CalcRSI(const double &price[], int shift, int len, int total)
 
    double avgGain = gain / len;
    double avgLoss = loss / len;
-
    if(avgLoss == 0.0)
       return 100.0;
 
@@ -119,14 +110,14 @@ double CalcStochastic(const double &close[], const double &high[], const double 
 
    double highest = -DBL_MAX;
    double lowest  = DBL_MAX;
-   int i;
+   int idx;
 
-   for(i = 0; i < len; ++i)
+   for(idx = 0; idx < len; ++idx)
    {
-      double hh = high[shift + i];
-      double ll = low[shift + i];
+      double hh = high[shift + idx];
+      double ll = low[shift + idx];
       highest = MathMax(highest, hh);
-      lowest  = MathMin(lowest, ll);
+      lowest  = MathMin(lowest,  ll);
    }
 
    if(MathAbs(highest - lowest) < DBL_EPSILON)
@@ -142,14 +133,14 @@ double CalcMFI(const double &high[], const double &low[], const double &close[],
 
    double posFlow = 0.0;
    double negFlow = 0.0;
-   int i;
+   int idx;
 
-   for(i = 0; i < len; ++i)
+   for(idx = 0; idx < len; ++idx)
    {
-      int idx = shift + i;
-      double typical     = (high[idx] + low[idx] + close[idx]) / 3.0;
-      double typicalPrev = (high[idx + 1] + low[idx + 1] + close[idx + 1]) / 3.0;
-      double flow = typical * (double)volume[idx];
+      int pos = shift + idx;
+      double typical     = (high[pos] + low[pos] + close[pos]) / 3.0;
+      double typicalPrev = (high[pos + 1] + low[pos + 1] + close[pos + 1]) / 3.0;
+      double flow = typical * (double)volume[pos];
 
       if(typical >= typicalPrev)
          posFlow += flow;
@@ -171,11 +162,11 @@ double CalcStochasticRSI(const double &price[], int shift, int len, int total)
 
    double highest = -DBL_MAX;
    double lowest  = DBL_MAX;
-   int i;
+   int idx;
 
-   for(i = 0; i < len; ++i)
+   for(idx = 0; idx < len; ++idx)
    {
-      double rsiVal = CalcRSI(price, shift + i, len, total);
+      double rsiVal = CalcRSI(price, shift + idx, len, total);
       highest = MathMax(highest, rsiVal);
       lowest  = MathMin(lowest,  rsiVal);
    }
@@ -191,19 +182,11 @@ double GetOscillatorValue(const double &close[], const double &high[], const dou
 {
    switch(InpOscillator)
    {
-      case OSC_RSI:
-         return CalcRSI(close, shift, InpOscLength, total);
-
-      case OSC_STOCHASTIC:
-         return CalcStochastic(close, high, low, shift, InpOscLength, total);
-
-      case OSC_STOCH_RSI:
-         return CalcStochasticRSI(close, shift, InpOscLength, total);
-
-      case OSC_MFI:
-         return CalcMFI(high, low, close, volume, shift, InpOscLength, total);
+      case OSC_RSI:         return CalcRSI(close, shift, InpOscLength, total);
+      case OSC_STOCHASTIC:  return CalcStochastic(close, high, low, shift, InpOscLength, total);
+      case OSC_STOCH_RSI:   return CalcStochasticRSI(close, shift, InpOscLength, total);
+      case OSC_MFI:         return CalcMFI(high, low, close, volume, shift, InpOscLength, total);
    }
-
    return 50.0;
 }
 
@@ -212,12 +195,9 @@ void CloseOppositePositions(bool wantBuy)
    int idx;
    for(idx = PositionsTotal() - 1; idx >= 0; --idx)
    {
-      if(!PositionSelectByIndex(idx))
-         continue;
-      if(PositionGetInteger(POSITION_MAGIC) != (long)InpMagic)
-         continue;
-      if(PositionGetString(POSITION_SYMBOL) != _Symbol)
-         continue;
+      if(!PositionSelectByIndex(idx)) continue;
+      if(PositionGetInteger(POSITION_MAGIC) != (long)InpMagic) continue;
+      if(PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
 
       long type = PositionGetInteger(POSITION_TYPE);
       if((wantBuy && type == POSITION_TYPE_SELL) || (!wantBuy && type == POSITION_TYPE_BUY))
@@ -230,12 +210,9 @@ bool HasPosition(bool wantBuy)
    int idx;
    for(idx = PositionsTotal() - 1; idx >= 0; --idx)
    {
-      if(!PositionSelectByIndex(idx))
-         continue;
-      if(PositionGetInteger(POSITION_MAGIC) != (long)InpMagic)
-         continue;
-      if(PositionGetString(POSITION_SYMBOL) != _Symbol)
-         continue;
+      if(!PositionSelectByIndex(idx)) continue;
+      if(PositionGetInteger(POSITION_MAGIC) != (long)InpMagic) continue;
+      if(PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
 
       long type = PositionGetInteger(POSITION_TYPE);
       if((wantBuy && type == POSITION_TYPE_BUY) || (!wantBuy && type == POSITION_TYPE_SELL))
@@ -309,12 +286,12 @@ bool EvaluateSignals(bool &longSignal, bool &shortSignal)
    int smoothLen = MathMax(InpSignalLength, 1);
    double sumCurr = 0.0;
    double sumPrev = 0.0;
-   int i;
+   int idx;
 
-   for(i = 0; i < smoothLen; ++i)
+   for(idx = 0; idx < smoothLen; ++idx)
    {
-      double valCurr = GetOscillatorValue(closeArr, highArr, lowArr, volumeArr, copiedClose, 1 + i);
-      double valPrev = GetOscillatorValue(closeArr, highArr, lowArr, volumeArr, copiedClose, 2 + i);
+      double valCurr = GetOscillatorValue(closeArr, highArr, lowArr, volumeArr, copiedClose, 1 + idx);
+      double valPrev = GetOscillatorValue(closeArr, highArr, lowArr, volumeArr, copiedClose, 2 + idx);
       sumCurr += valCurr;
       sumPrev += valPrev;
    }
@@ -325,7 +302,7 @@ bool EvaluateSignals(bool &longSignal, bool &shortSignal)
    if(!MathIsValidNumber(oscCurr) || !MathIsValidNumber(oscPrev))
       return false;
 
-   bool crossUp = (oscPrev < 50.0 && oscCurr >= 50.0);
+   bool crossUp   = (oscPrev < 50.0 && oscCurr >= 50.0);
    bool crossDown = (oscPrev > 50.0 && oscCurr <= 50.0);
 
    double trendSlope = regMidCurr - regMidPrev;
@@ -344,7 +321,6 @@ int OnInit()
 
 void OnDeinit(const int reason)
 {
-   // Optional cleanup
 }
 
 void OnTick()
@@ -354,7 +330,8 @@ void OnTick()
       return;
    g_lastBarTime = currentBar;
 
-   bool longSignal = false, shortSignal = false;
+   bool longSignal = false;
+   bool shortSignal = false;
    if(!EvaluateSignals(longSignal, shortSignal))
       return;
 
@@ -363,4 +340,3 @@ void OnTick()
    else if(shortSignal)
       OpenTrade(false);
 }
-
