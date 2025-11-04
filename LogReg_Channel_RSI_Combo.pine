@@ -2,8 +2,12 @@
 // https://creativecommons.org/licenses/by-nc-sa/4.0/
 // © BigBeluga Ц модификаци€ с RSI-фильтром (GPT-5 Codex)
 
+// This work is licensed under Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International
+// https://creativecommons.org/licenses/by-nc-sa/4.0/
+// © BigBeluga Ц ??????????? ? RSI-???????? (GPT-5 Codex)
+
 //@version=6
-indicator("LogReg RSI Combo", "LogReg RSI Combo", overlay = true)
+indicator("LogReg RSI Combo", "LogRegRSI", overlay = true)
 
 // ?? Inputs ?????????????????????????????????????????????????????????????????????
 // Channel
@@ -56,7 +60,7 @@ float rsi_low  = ta.lowest(rsi_val, osc_length)
 float stoch_rsi_raw = rsi_high == rsi_low ? 50.0 : (rsi_val - rsi_low) / (rsi_high - rsi_low) * 100
 float stoch_rsi = ta.sma(stoch_rsi_raw, 3)
 
-float mfi_val = ta.mfi(high, low, close, volume, osc_length)
+float mfi_val = ta.mfi(osc_length)
 
 float osc_value = switch osc_option
     "RSI"            => rsi_val
@@ -81,8 +85,8 @@ bool long_signal = barstate.isconfirmed and near_lower and cross_up and (not req
 bool short_signal = barstate.isconfirmed and near_upper and cross_down and (not require_trend or trend_slope < 0)
 
 // ?? Plots ??????????????????????????????????????????????????????????????????????
-plot upper_plot = plot(upper, "Upper", color = col_upper, linewidth = 2)
-plot lower_plot = plot(lower, "Lower", color = col_lower, linewidth = 2)
+upper_plot = plot(upper, "Upper", color = col_upper, linewidth = 2)
+lower_plot = plot(lower, "Lower", color = col_lower, linewidth = 2)
 plot(mid_disp ? reg_mid : na, "Mid", color = col_mid, linewidth = 1, style = plot.style_dashed)
 
 if fill_band
